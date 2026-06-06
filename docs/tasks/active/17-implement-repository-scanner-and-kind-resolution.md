@@ -14,8 +14,6 @@ depends_on:
   - 16
 ---
 
-# Implement repository scanner and kind resolution
-
 ## Goal
 
 Scan a repository and discover numbered vibe-doc documents with expected kinds.
@@ -50,4 +48,3 @@ Scan a repository and discover numbered vibe-doc documents with expected kinds.
 ## Result
 
 Not implemented.
-

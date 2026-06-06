@@ -14,8 +14,6 @@ depends_on:
   - 19
 ---
 
-# Implement validation and check command output
-
 ## Goal
 
 Expose validation and consistency checks through CLI commands.
@@ -51,4 +49,3 @@ Expose validation and consistency checks through CLI commands.
 ## Result
 
 Not implemented.
-

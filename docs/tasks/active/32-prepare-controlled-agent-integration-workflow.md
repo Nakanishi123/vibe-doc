@@ -13,8 +13,6 @@ depends_on:
   - 26
 ---
 
-# Prepare controlled agent integration workflow
-
 ## Goal
 
 Define and prototype the safe boundary for future Codex or agent integration.
@@ -50,4 +48,3 @@ Define and prototype the safe boundary for future Codex or agent integration.
 ## Result
 
 Not implemented.
-

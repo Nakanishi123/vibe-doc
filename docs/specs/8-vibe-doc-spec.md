@@ -7,8 +7,6 @@ tags:
   - product
 ---
 
-# vibe-doc Product Specification
-
 ## Overview
 
 vibe-doc is a Markdown-first document and task management tool for AI-assisted development, especially vibe coding workflows.

@@ -16,8 +16,6 @@ depends_on:
   - 28
 ---
 
-# Implement validation and task mutation APIs
-
 ## Goal
 
 Expose validation results and approved task lifecycle mutations through the server API.
@@ -55,4 +53,3 @@ Expose validation results and approved task lifecycle mutations through the serv
 ## Result
 
 Not implemented.
-

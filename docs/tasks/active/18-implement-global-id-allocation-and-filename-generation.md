@@ -14,8 +14,6 @@ depends_on:
   - 17
 ---
 
-# Implement global ID allocation and filename generation
-
 ## Goal
 
 Provide core utilities for assigning the next global ID and generating document filenames.
@@ -50,4 +48,3 @@ Provide core utilities for assigning the next global ID and generating document 
 ## Result
 
 Not implemented.
-

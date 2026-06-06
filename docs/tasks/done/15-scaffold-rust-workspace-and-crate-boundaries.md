@@ -14,8 +14,6 @@ adrs: []
 depends_on: []
 ---
 
-# Scaffold Rust workspace and crate boundaries
-
 ## Goal
 
 Create the initial Rust workspace structure for the CLI, server, and shared core logic.

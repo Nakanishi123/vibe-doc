@@ -8,8 +8,6 @@ tags:
   - api
 ---
 
-# vibe-doc Web UI Specification
-
 ## Overview
 
 The Web UI is a React, Vite, Tailwind CSS, and TypeScript SPA.
@@ -238,4 +236,3 @@ Future Markdown editing must:
 - detect concurrent or external edits
 - prevent invalid path writes
 - target documents by ID
-

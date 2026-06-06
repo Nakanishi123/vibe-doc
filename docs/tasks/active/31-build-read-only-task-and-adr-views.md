@@ -15,8 +15,6 @@ depends_on:
   - 28
 ---
 
-# Build read-only task and ADR views
-
 ## Goal
 
 Build focused Web UI views for tasks and ADRs.
@@ -52,4 +50,3 @@ Build focused Web UI views for tasks and ADRs.
 ## Result
 
 Not implemented.
-

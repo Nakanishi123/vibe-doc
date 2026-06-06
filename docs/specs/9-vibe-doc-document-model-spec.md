@@ -8,8 +8,6 @@ tags:
   - frontmatter
 ---
 
-# vibe-doc Document Model Specification
-
 ## Overview
 
 This spec defines the repository layout, document kinds, frontmatter rules, ID rules, and references for vibe-doc-managed projects.

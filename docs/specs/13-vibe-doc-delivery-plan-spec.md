@@ -8,8 +8,6 @@ tags:
   - mvp
 ---
 
-# vibe-doc Delivery Plan Specification
-
 ## Overview
 
 This spec records the intended implementation phases, MVP scope, important product decisions, and open questions.
@@ -132,4 +130,3 @@ Codex Runner and Web UI editing are not included in the MVP.
 - Should dropped tasks live in `done/` or a separate folder?
 - How should Web UI edit conflict detection work?
 - Should the Web UI require Git diff display before saves?
-

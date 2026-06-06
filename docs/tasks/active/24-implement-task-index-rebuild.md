@@ -15,8 +15,6 @@ depends_on:
   - 23
 ---
 
-# Implement task index rebuild
-
 ## Goal
 
 Implement `vdoc rebuild index` to regenerate `docs/tasks/index.md` from task frontmatter.
@@ -51,4 +49,3 @@ Implement `vdoc rebuild index` to regenerate `docs/tasks/index.md` from task fro
 ## Result
 
 Not implemented.
-

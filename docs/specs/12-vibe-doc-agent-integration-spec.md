@@ -8,8 +8,6 @@ tags:
   - agents
 ---
 
-# vibe-doc Agent Integration Specification
-
 ## Overview
 
 vibe-doc may integrate with Codex and other coding agents in the future.
@@ -73,4 +71,3 @@ POST /api/tasks/:id/run-codex
 GET /api/runs/:runId
 GET /api/runs/:runId/logs
 ```
-

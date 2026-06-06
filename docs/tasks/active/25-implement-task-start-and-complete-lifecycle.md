@@ -15,8 +15,6 @@ depends_on:
   - 24
 ---
 
-# Implement task start and complete lifecycle
-
 ## Goal
 
 Implement safe CLI operations for starting and completing tasks.
@@ -54,4 +52,3 @@ Implement safe CLI operations for starting and completing tasks.
 ## Result
 
 Not implemented.
-

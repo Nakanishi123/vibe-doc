@@ -16,8 +16,6 @@ depends_on:
   - 23
 ---
 
-# Implement task context and guard commands
-
 ## Goal
 
 Implement task-oriented read checks that support human and agent workflows.
@@ -52,4 +50,3 @@ Implement task-oriented read checks that support human and agent workflows.
 ## Result
 
 Not implemented.
-

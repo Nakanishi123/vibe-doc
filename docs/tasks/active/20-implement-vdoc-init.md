@@ -14,8 +14,6 @@ depends_on:
   - 15
 ---
 
-# Implement vdoc init
-
 ## Goal
 
 Implement `vdoc init` to create the initial vibe-doc documentation layout.
@@ -51,4 +49,3 @@ Implement `vdoc init` to create the initial vibe-doc documentation layout.
 ## Result
 
 Not implemented.
-

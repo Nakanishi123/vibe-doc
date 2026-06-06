@@ -16,8 +16,6 @@ depends_on:
   - 19
 ---
 
-# Implement vdoc new document commands
-
 ## Goal
 
 Implement commands that create new numbered VDoc documents.
@@ -55,4 +53,3 @@ Implement commands that create new numbered VDoc documents.
 ## Result
 
 Not implemented.
-

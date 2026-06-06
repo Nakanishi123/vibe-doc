@@ -4,8 +4,6 @@ title: Task Index
 kind: task-index
 ---
 
-# Task Index
-
 This index is maintained manually until `vdoc rebuild index` exists.
 
 ## Doing

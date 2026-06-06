@@ -15,8 +15,6 @@ depends_on:
   - 19
 ---
 
-# Implement server document APIs
-
 ## Goal
 
 Implement read-only API endpoints for documents, specs, designs, ADRs, and tasks.
@@ -53,4 +51,3 @@ Implement read-only API endpoints for documents, specs, designs, ADRs, and tasks
 ## Result
 
 Not implemented.
-

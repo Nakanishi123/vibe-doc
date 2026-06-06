@@ -15,8 +15,6 @@ depends_on:
   - 15
 ---
 
-# Scaffold Web UI app and shared API types
-
 ## Goal
 
 Create the initial React/Vite/Tailwind/TypeScript app structure and shared API type definitions.
@@ -52,4 +50,3 @@ Create the initial React/Vite/Tailwind/TypeScript app structure and shared API t
 ## Result
 
 Not implemented.
-

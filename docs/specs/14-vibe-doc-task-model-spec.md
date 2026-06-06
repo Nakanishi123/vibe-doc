@@ -8,8 +8,6 @@ tags:
   - lifecycle
 ---
 
-# vibe-doc Task Model Specification
-
 ## Overview
 
 This spec defines vibe-doc task metadata, task lifecycle rules, task body conventions, and task index behavior.
@@ -146,4 +144,3 @@ depends_on:
 ```
 
 Task dependencies refer to other task IDs. A task is ready only when every dependency is complete.
-

@@ -14,8 +14,6 @@ depends_on:
   - 17
 ---
 
-# Implement vdoc list and show
-
 ## Goal
 
 Implement read-only CLI commands for listing and displaying documents.
@@ -52,4 +50,3 @@ Implement read-only CLI commands for listing and displaying documents.
 ## Result
 
 Not implemented.
-

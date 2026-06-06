@@ -14,8 +14,6 @@ depends_on:
   - 28
 ---
 
-# Build read-only Web UI document views
-
 ## Goal
 
 Build Web UI views for browsing documents and reading document details.
@@ -52,4 +50,3 @@ Build Web UI views for browsing documents and reading document details.
 ## Result
 
 Not implemented.
-

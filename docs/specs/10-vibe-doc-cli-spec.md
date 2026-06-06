@@ -8,8 +8,6 @@ tags:
   - validation
 ---
 
-# vibe-doc CLI Specification
-
 ## Overview
 
 The product and repository name is `vibe-doc`. The CLI command name is `vdoc`.

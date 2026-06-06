@@ -15,8 +15,6 @@ depends_on:
 completed_at: 2026-06-06
 ---
 
-# Implement frontmatter parsing and typed document metadata
-
 ## Goal
 
 Implement core parsing for numbered vibe-doc Markdown documents.

@@ -14,8 +14,6 @@ depends_on:
   - 17
 ---
 
-# Implement schema loading and frontmatter validation
-
 ## Goal
 
 Validate numbered VDoc document frontmatter against the repository schema files and built-in rules.
@@ -50,4 +48,3 @@ Validate numbered VDoc document frontmatter against the repository schema files 
 ## Result
 
 Not implemented.
-
