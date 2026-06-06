@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vdoc.local/schemas/spec.schema.json",
+  "title": "VDoc Spec Frontmatter",
+  "allOf": [
+    {
+      "$ref": "./document.schema.json"
+    },
+    {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "const": "spec"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["deprecated"]
+        },
+        "superseded_by": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  ]
+}

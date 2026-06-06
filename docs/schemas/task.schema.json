@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vdoc.local/schemas/task.schema.json",
+  "title": "VDoc Task Frontmatter",
+  "allOf": [
+    {
+      "$ref": "./document.schema.json"
+    },
+    {
+      "type": "object",
+      "required": ["kind", "type", "status"],
+      "properties": {
+        "kind": {
+          "const": "task"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["feature", "bug", "refactor", "chore", "docs", "test", "spike"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["planned", "doing", "blocked", "done", "dropped"]
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "specs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "designs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "adrs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    }
+  ]
+}

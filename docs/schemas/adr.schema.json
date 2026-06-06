@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vdoc.local/schemas/adr.schema.json",
+  "title": "VDoc ADR Frontmatter",
+  "allOf": [
+    {
+      "$ref": "./document.schema.json"
+    },
+    {
+      "type": "object",
+      "required": ["kind", "status"],
+      "properties": {
+        "kind": {
+          "const": "adr"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["proposed", "accepted", "rejected", "deprecated", "superseded"]
+        },
+        "date": {
+          "type": "string",
+          "format": "date"
+        },
+        "related_designs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "supersedes": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "superseded_by": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

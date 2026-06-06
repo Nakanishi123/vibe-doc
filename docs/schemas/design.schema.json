@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vdoc.local/schemas/design.schema.json",
+  "title": "VDoc Design Frontmatter",
+  "allOf": [
+    {
+      "$ref": "./document.schema.json"
+    },
+    {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "const": "design"
+        },
+        "specs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "adrs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "status": {
+          "type": "string",
+          "enum": ["deprecated"]
+        },
+        "superseded_by": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  ]
+}
