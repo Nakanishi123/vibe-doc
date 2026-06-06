@@ -1,10 +1,16 @@
 //! Shared core logic for vibe-doc.
 
+mod allocation;
 mod document;
 mod metadata;
 mod parser;
 mod repository;
 
+pub use allocation::{
+    allocate_next_document_id, document_filename, document_relative_path, duplicate_document_ids,
+    next_document_id, slugify_title, sorted_document_ids, DocumentLocation, DuplicateDocumentId,
+    IdAllocationError,
+};
 pub use document::{
     FrontmatterBlock, MarkdownDocument, NumberedDocument, SourceId, SourceLocation, SourceSpan,
     UnnumberedDocument,
