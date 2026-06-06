@@ -1,6 +1,6 @@
 # Specs
 
-Specs define what VDoc must do.
+Specs define what vibe-doc must do.
 
 A spec should focus on externally observable behavior, user needs, constraints, API contracts, error cases, and acceptance criteria. It should avoid detailed implementation choices unless they are part of the product contract.
 
@@ -20,7 +20,7 @@ tags:
 
 ## Current Specs
 
-- `8`: VDoc product overview
+- `8`: vibe-doc product overview
 - `9`: document model and repository layout
 - `10`: CLI and validation behavior
 - `11`: Web UI and API behavior

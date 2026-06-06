@@ -1,18 +1,18 @@
 ---
 id: 10
-title: VDoc CLI Specification
+title: vibe-doc CLI Specification
 kind: spec
 tags:
-  - vdoc
+  - vibe-doc
   - cli
   - validation
 ---
 
-# VDoc CLI Specification
+# vibe-doc CLI Specification
 
 ## Overview
 
-The CLI command name is `vdoc`.
+The product and repository name is `vibe-doc`. The CLI command name is `vdoc`.
 
 The CLI is implemented in Rust and designed for both humans and LLMs.
 
@@ -56,7 +56,7 @@ Destructive or state-changing commands should require or support `--yes`.
 
 ## Init
 
-`vdoc init` creates the VDoc documentation structure:
+`vdoc init` creates the vibe-doc documentation structure:
 
 - `AGENTS.md`
 - README files
@@ -133,8 +133,8 @@ Useful show options:
 
 `vdoc validate` checks:
 
-- frontmatter exists for numbered VDoc documents
-- `id`, `title`, and `kind` exist for numbered VDoc documents
+- frontmatter exists for numbered vibe-doc documents
+- `id`, `title`, and `kind` exist for numbered vibe-doc documents
 - IDs are globally unique positive integers
 - `kind` matches file location
 - ADR status is allowed
@@ -233,4 +233,3 @@ Useful options:
 - `--json`
 
 `vdoc server` does not generate static HTML.
-

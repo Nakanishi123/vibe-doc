@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vdoc.local/schemas/design.schema.json",
-  "title": "VDoc Design Frontmatter",
+  "$id": "https://vibe-doc.local/schemas/design.schema.json",
+  "title": "vibe-doc Design Frontmatter",
   "allOf": [
     {
       "$ref": "./document.schema.json"

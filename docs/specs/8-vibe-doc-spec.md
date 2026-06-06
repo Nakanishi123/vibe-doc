@@ -1,25 +1,27 @@
 ---
 id: 8
-title: VDoc Product Specification
+title: vibe-doc Product Specification
 kind: spec
 tags:
-  - vdoc
+  - vibe-doc
   - product
 ---
 
-# VDoc Product Specification
+# vibe-doc Product Specification
 
 ## Overview
 
-VDoc is a Markdown-first document and task management tool for AI-assisted development, especially vibe coding workflows.
+vibe-doc is a Markdown-first document and task management tool for AI-assisted development, especially vibe coding workflows.
 
-VDoc manages specifications, designs, ADRs, tasks, README files, and agent instructions as repository files. Specs, designs, ADRs, tasks, and the task index are numbered VDoc documents with YAML frontmatter. `AGENTS.md` and README files do not use frontmatter.
+The product and repository name is `vibe-doc`. The CLI command name is `vdoc`.
+
+vibe-doc manages specifications, designs, ADRs, tasks, README files, and agent instructions as repository files. Specs, designs, ADRs, tasks, and the task index are numbered vibe-doc documents with YAML frontmatter. `AGENTS.md` and README files do not use frontmatter.
 
 The source of truth is always the repository file tree. The CLI and Web UI must not introduce a separate canonical database.
 
 ## Product Components
 
-VDoc provides:
+vibe-doc provides:
 
 - a Rust CLI named `vdoc`
 - a Rust API server
@@ -29,11 +31,11 @@ VDoc provides:
 
 ## Goals
 
-VDoc should:
+vibe-doc should:
 
 - provide an AI-readable development documentation structure
 - keep documentation human-manageable with Markdown
-- assign a unique global integer ID to every numbered VDoc document
+- assign a unique global integer ID to every numbered vibe-doc document
 - preserve frontmatter consistency through CLI validation
 - separate specs, designs, ADRs, and tasks by role
 - manage the active and done lifecycle of tasks
@@ -58,7 +60,7 @@ The initial product is not:
 ## Core Principles
 
 - Markdown is the body format.
-- YAML frontmatter is used only for numbered VDoc document metadata.
+- YAML frontmatter is used only for numbered vibe-doc document metadata.
 - README files and `AGENTS.md` are unnumbered operational documents.
 - Frontmatter references use document IDs, not file paths.
 - IDs are positive integers without zero padding.
@@ -76,29 +78,29 @@ The initial product is not:
 
 ## Product Repository Shape
 
-VDoc itself is intended to become a monorepo using a Rust workspace and a pnpm workspace.
+vibe-doc itself is intended to become a monorepo using a Rust workspace and a pnpm workspace.
 
 Recommended final structure:
 
 ```txt
-vdoc/
+vibe-doc/
 ├── Cargo.toml
 ├── package.json
 ├── pnpm-workspace.yaml
 ├── README.md
 ├── crates/
-│   ├── vdoc-core/
-│   ├── vdoc-cli/
-│   └── vdoc-server/
+│   ├── vibe-doc-core/
+│   ├── vibe-doc-cli/
+│   └── vibe-doc-server/
 └── apps/
     └── web/
 ```
 
 Responsibilities:
 
-- `crates/vdoc-core`: frontmatter parsing, Markdown scanning, ID management, validation, document resolution, and task lifecycle logic
-- `crates/vdoc-cli`: Rust CLI
-- `crates/vdoc-server`: Rust API server and SPA host
+- `crates/vibe-doc-core`: frontmatter parsing, Markdown scanning, ID management, validation, document resolution, and task lifecycle logic
+- `crates/vibe-doc-cli`: Rust CLI
+- `crates/vibe-doc-server`: Rust API server and SPA host
 - `apps/web`: React SPA
 
-The CLI and server share core behavior through `vdoc-core`.
+The CLI and server share core behavior through `vibe-doc-core`.

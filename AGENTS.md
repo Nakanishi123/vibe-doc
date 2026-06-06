@@ -1,14 +1,14 @@
 # Agent Instructions
 
-This repository is managed as a VDoc project before the real `vdoc` CLI exists.
+This repository is managed as a vibe-doc project before the real `vdoc` CLI exists.
 
 ## Operating Rules
 
 - Treat repository Markdown as the source of truth.
 - Do not run `vdoc` commands until the CLI is implemented.
-- Maintain VDoc frontmatter manually for specs, designs, ADRs, tasks, and the task index.
+- Maintain vibe-doc frontmatter manually for specs, designs, ADRs, tasks, and the task index.
 - `AGENTS.md` and README files do not use frontmatter.
-- Assign new document IDs by scanning numbered VDoc document frontmatter and using the next global positive integer.
+- Assign new document IDs by scanning numbered vibe-doc document frontmatter and using the next global positive integer.
 - Keep document references ID-based, not path-based.
 - Keep operational documentation English-first. Frontmatter keys and enum values must remain stable English identifiers.
 

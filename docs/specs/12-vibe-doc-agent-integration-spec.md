@@ -1,18 +1,18 @@
 ---
 id: 12
-title: VDoc Agent Integration Specification
+title: vibe-doc Agent Integration Specification
 kind: spec
 tags:
-  - vdoc
+  - vibe-doc
   - codex
   - agents
 ---
 
-# VDoc Agent Integration Specification
+# vibe-doc Agent Integration Specification
 
 ## Overview
 
-VDoc may integrate with Codex and other coding agents in the future.
+vibe-doc may integrate with Codex and other coding agents in the future.
 
 Initial implementations must not expose arbitrary shell execution through the Web UI.
 
@@ -53,13 +53,13 @@ Codex execution must:
 
 1. The user opens a task detail screen.
 2. The user selects Prepare Codex Run.
-3. VDoc validates task readiness.
-4. VDoc collects task context.
-5. VDoc generates a Codex prompt.
+3. vibe-doc validates task readiness.
+4. vibe-doc collects task context.
+5. vibe-doc generates a Codex prompt.
 6. The user approves the prompt.
-7. VDoc runs a Codex job.
-8. VDoc streams logs.
-9. VDoc displays a diff.
+7. vibe-doc runs a Codex job.
+8. vibe-doc streams logs.
+9. vibe-doc displays a diff.
 10. The user accepts or rejects changes.
 11. The user completes the task if appropriate.
 

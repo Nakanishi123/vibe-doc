@@ -1,6 +1,6 @@
 # Designs
 
-Design documents describe how VDoc should be built to satisfy one or more specs.
+Design documents describe how vibe-doc should be built to satisfy one or more specs.
 
 A design may cover components, data flow, data models, error handling, testing strategy, and alternatives considered.
 

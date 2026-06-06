@@ -1,22 +1,22 @@
 ---
 id: 9
-title: VDoc Document Model Specification
+title: vibe-doc Document Model Specification
 kind: spec
 tags:
-  - vdoc
+  - vibe-doc
   - documents
   - frontmatter
 ---
 
-# VDoc Document Model Specification
+# vibe-doc Document Model Specification
 
 ## Overview
 
-This spec defines the repository layout, document kinds, frontmatter rules, ID rules, and references for VDoc-managed projects.
+This spec defines the repository layout, document kinds, frontmatter rules, ID rules, and references for vibe-doc-managed projects.
 
 ## Managed Project Structure
 
-A project using VDoc has this structure:
+A project using vibe-doc has this structure:
 
 ```txt
 .
@@ -64,11 +64,11 @@ Repository documentation files are:
 - `docs/tasks/active/*.md`
 - `docs/tasks/done/*.md`
 
-Specs, designs, ADRs, tasks, and the task index are numbered VDoc documents. `AGENTS.md` and README files are unnumbered and do not use frontmatter.
+Specs, designs, ADRs, tasks, and the task index are numbered vibe-doc documents. `AGENTS.md` and README files are unnumbered and do not use frontmatter.
 
 ## Schemas
 
-VDoc uses JSON Schema to describe frontmatter validation rules. Schemas live in `docs/schemas/`.
+vibe-doc uses JSON Schema to describe frontmatter validation rules. Schemas live in `docs/schemas/`.
 
 Schemas validate:
 
@@ -80,11 +80,11 @@ Schemas validate:
 - priority
 - ID reference shape
 
-Markdown body templates are built into the CLI. If custom templates are added later, they should use a non-managed extension such as `.vdoc/templates/*.md.tmpl`.
+Markdown body templates are built into the CLI. If custom templates are added later, they should use a non-managed extension such as `.vibe-doc/templates/*.md.tmpl`.
 
 ## Global ID Rules
 
-Every numbered VDoc document has one global positive integer ID.
+Every numbered vibe-doc document has one global positive integer ID.
 
 IDs are shared across specs, designs, ADRs, tasks, and the task index. README files and `AGENTS.md` do not participate in ID assignment.
 
@@ -152,7 +152,7 @@ It should include:
 - forbidden actions
 - documentation update rules
 - spec, design, ADR, and task usage rules
-- VDoc CLI usage rules
+- vibe-doc CLI usage rules
 - project-specific LLM instructions
 
 `AGENTS.md` does not use frontmatter.
@@ -166,7 +166,7 @@ They should describe:
 - what belongs in the directory
 - what does not belong in the directory
 - naming rules
-- frontmatter rules for numbered VDoc documents in the directory
+- frontmatter rules for numbered vibe-doc documents in the directory
 - schema references
 - CLI usage
 

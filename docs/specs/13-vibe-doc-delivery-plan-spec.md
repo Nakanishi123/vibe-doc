@@ -1,14 +1,14 @@
 ---
 id: 13
-title: VDoc Delivery Plan Specification
+title: vibe-doc Delivery Plan Specification
 kind: spec
 tags:
-  - vdoc
+  - vibe-doc
   - roadmap
   - mvp
 ---
 
-# VDoc Delivery Plan Specification
+# vibe-doc Delivery Plan Specification
 
 ## Overview
 
@@ -19,8 +19,8 @@ This spec records the intended implementation phases, MVP scope, important produ
 Phase 1: CLI Core
 
 - Rust workspace
-- `vdoc-core`
-- `vdoc-cli`
+- `vibe-doc-core`
+- `vibe-doc-cli`
 - init, new, list, show, validate, and index rebuild
 - global ID management
 - frontmatter and schema validation
@@ -35,7 +35,7 @@ Phase 2: Task Lifecycle
 
 Phase 3: Web UI Server
 
-- `vdoc-server`
+- `vibe-doc-server`
 - `vdoc server`
 - SPA serving
 - document, validation, task, and context APIs
@@ -52,7 +52,7 @@ Phase 4: Web UI Viewer
 
 Phase 5: Web UI Operations
 
-- safe VDoc operations
+- safe vibe-doc operations
 - task start
 - task complete
 - index rebuild
@@ -106,7 +106,7 @@ Codex Runner and Web UI editing are not included in the MVP.
 
 ## Important Decisions
 
-- Every numbered VDoc document requires `id`, `title`, and `kind`.
+- Every numbered vibe-doc document requires `id`, `title`, and `kind`.
 - `AGENTS.md` and README files do not use frontmatter.
 - IDs are positive integers without zero padding.
 - IDs are globally unique across all document kinds.
@@ -114,7 +114,7 @@ Codex Runner and Web UI editing are not included in the MVP.
 - Completed tasks move to `docs/tasks/done/`.
 - The CLI preserves consistency with `validate` and `check`.
 - The CLI and API server are implemented in Rust.
-- Shared logic lives in `vdoc-core`.
+- Shared logic lives in `vibe-doc-core`.
 - The Web UI is a React SPA served by `vdoc server`.
 - Static site generation is out of scope for the initial product.
 

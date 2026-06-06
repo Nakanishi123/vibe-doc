@@ -1,18 +1,18 @@
 ---
 id: 14
-title: VDoc Task Model Specification
+title: vibe-doc Task Model Specification
 kind: spec
 tags:
-  - vdoc
+  - vibe-doc
   - tasks
   - lifecycle
 ---
 
-# VDoc Task Model Specification
+# vibe-doc Task Model Specification
 
 ## Overview
 
-This spec defines VDoc task metadata, task lifecycle rules, task body conventions, and task index behavior.
+This spec defines vibe-doc task metadata, task lifecycle rules, task body conventions, and task index behavior.
 
 ## Tasks
 

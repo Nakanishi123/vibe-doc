@@ -1,14 +1,14 @@
 ---
 id: 11
-title: VDoc Web UI Specification
+title: vibe-doc Web UI Specification
 kind: spec
 tags:
-  - vdoc
+  - vibe-doc
   - web-ui
   - api
 ---
 
-# VDoc Web UI Specification
+# vibe-doc Web UI Specification
 
 ## Overview
 
@@ -23,7 +23,7 @@ The Web UI is a React, Vite, Tailwind CSS, and TypeScript SPA.
 `vdoc server` provides:
 
 - SPA serving
-- VDoc APIs
+- vibe-doc APIs
 - Markdown reads from the repository
 - frontmatter parsing
 - Markdown-to-HTML rendering
@@ -202,7 +202,7 @@ Requirements:
 - bind to `127.0.0.1` by default
 - do not expose arbitrary shell execution
 - do not expose arbitrary file writes
-- expose only approved VDoc operations
+- expose only approved vibe-doc operations
 - validate task IDs and document IDs
 - prevent path traversal
 - prefer ID-based operations over path-based operations
@@ -226,7 +226,7 @@ POST /api/tasks/:id/complete
 
 The initial Web UI is read-only by default.
 
-Allowed mutations should be limited to explicit VDoc operations such as task start, task complete, and index rebuild.
+Allowed mutations should be limited to explicit vibe-doc operations such as task start, task complete, and index rebuild.
 
 Future Markdown editing must:
 

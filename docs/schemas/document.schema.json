@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vdoc.local/schemas/document.schema.json",
-  "title": "VDoc Document Frontmatter",
+  "$id": "https://vibe-doc.local/schemas/document.schema.json",
+  "title": "vibe-doc Document Frontmatter",
   "type": "object",
   "required": ["id", "title", "kind"],
   "properties": {
