@@ -323,7 +323,7 @@ pub struct UnnumberedDocument {
 /// Parsed Markdown document classification.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MarkdownDocument {
-    Numbered(NumberedDocument),
+    Numbered(Box<NumberedDocument>),
     Unnumbered(UnnumberedDocument),
 }
 
@@ -385,12 +385,12 @@ pub fn parse_markdown_document(
     match split_frontmatter(source.clone(), markdown)? {
         Some(split) => {
             let metadata = parse_metadata(source.clone(), &split.frontmatter)?;
-            Ok(MarkdownDocument::Numbered(NumberedDocument {
+            Ok(MarkdownDocument::Numbered(Box::new(NumberedDocument {
                 source,
                 frontmatter: split.frontmatter,
                 metadata,
                 body: split.body,
-            }))
+            })))
         }
         None => Ok(MarkdownDocument::Unnumbered(UnnumberedDocument {
             source,
@@ -407,7 +407,7 @@ pub fn parse_numbered_document(
     let source = source.into();
 
     match parse_markdown_document(source.clone(), markdown)? {
-        MarkdownDocument::Numbered(document) => Ok(document),
+        MarkdownDocument::Numbered(document) => Ok(*document),
         MarkdownDocument::Unnumbered(_) => Err(ParseError::new(
             source,
             ParseErrorKind::MissingFrontmatter,
