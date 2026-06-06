@@ -14,7 +14,6 @@ No tasks.
 
 ## Planned
 
-- 15 Scaffold Rust workspace and crate boundaries
 - 16 Implement frontmatter parsing and typed document metadata
 - 17 Implement repository scanner and kind resolution
 - 18 Implement global ID allocation and filename generation
@@ -39,4 +38,4 @@ No tasks.
 
 ## Done
 
-No tasks.
+- 15 Scaffold Rust workspace and crate boundaries

@@ -1,0 +1,11 @@
+[package]
+name = "vibe-doc-cli"
+edition.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "vdoc"
+path = "src/main.rs"
+
+[dependencies]
+vibe-doc-core.workspace = true

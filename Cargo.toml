@@ -1,0 +1,14 @@
+[workspace]
+members = [
+    "crates/vibe-doc-core",
+    "crates/vibe-doc-cli",
+    "crates/vibe-doc-server",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+
+[workspace.dependencies]
+vibe-doc-core = { path = "crates/vibe-doc-core" }

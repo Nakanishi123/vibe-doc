@@ -17,6 +17,16 @@ pnpm --version
 
 Rust, Node.js, and other tools are intentionally not pinned yet.
 
+## Rust Workspace
+
+The Rust workspace is split by product responsibility:
+
+- `crates/vibe-doc-core` contains shared document, validation, scanning, ID, and task lifecycle logic.
+- `crates/vibe-doc-cli` builds the `vdoc` command and depends on `vibe-doc-core`.
+- `crates/vibe-doc-server` hosts the API server and SPA and depends on `vibe-doc-core`.
+
+Dependency direction is inward toward `vibe-doc-core`: the core crate must not depend on the CLI or server crates.
+
 ## Documentation Source of Truth
 
 The source of truth is the Markdown under `docs/` plus `AGENTS.md`.

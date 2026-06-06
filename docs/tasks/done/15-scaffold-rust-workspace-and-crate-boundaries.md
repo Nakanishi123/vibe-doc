@@ -3,7 +3,7 @@ id: 15
 title: Scaffold Rust workspace and crate boundaries
 kind: task
 type: chore
-status: planned
+status: done
 priority: high
 specs:
   - 8
@@ -37,19 +37,18 @@ Create the initial Rust workspace structure for the CLI, server, and shared core
 
 ## Checklist
 
-- [ ] Workspace manifest exists.
-- [ ] Core crate builds.
-- [ ] CLI crate builds.
-- [ ] Server crate builds.
-- [ ] Shared dependency direction is documented.
+- [x] Workspace manifest exists.
+- [x] Core crate builds.
+- [x] CLI crate builds.
+- [x] Server crate builds.
+- [x] Shared dependency direction is documented.
 
 ## Done Criteria
 
-- [ ] `cargo check` succeeds for the workspace.
-- [ ] No crate contains behavior that belongs in a later task.
-- [ ] Related specs remain accurate.
+- [x] `cargo check` succeeds for the workspace.
+- [x] No crate contains behavior that belongs in a later task.
+- [x] Related specs remain accurate.
 
 ## Result
 
-Not implemented.
-
+Implemented the initial Rust workspace with `vibe-doc-core`, `vibe-doc-cli`, and `vibe-doc-server`. The CLI and server crates depend on the core crate, and the repository README documents the intended dependency direction.

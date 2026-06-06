@@ -1,0 +1,8 @@
+[package]
+name = "vibe-doc-core"
+edition.workspace = true
+version.workspace = true
+
+[lib]
+name = "vibe_doc_core"
+path = "src/lib.rs"

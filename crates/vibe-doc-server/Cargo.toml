@@ -1,0 +1,7 @@
+[package]
+name = "vibe-doc-server"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+vibe-doc-core.workspace = true
