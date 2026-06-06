@@ -14,7 +14,6 @@ No tasks.
 
 ## Planned
 
-- 16 Implement frontmatter parsing and typed document metadata
 - 17 Implement repository scanner and kind resolution
 - 18 Implement global ID allocation and filename generation
 - 19 Implement schema loading and frontmatter validation
@@ -39,3 +38,4 @@ No tasks.
 ## Done
 
 - 15 Scaffold Rust workspace and crate boundaries
+- 16 Implement frontmatter parsing and typed document metadata
