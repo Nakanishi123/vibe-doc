@@ -12,7 +12,6 @@ No tasks.
 
 ## Planned
 
-- 19 Implement schema loading and frontmatter validation
 - 20 Implement `vdoc init`
 - 21 Implement `vdoc new` document commands
 - 22 Implement `vdoc list` and `vdoc show`
@@ -37,3 +36,4 @@ No tasks.
 - 16 Implement frontmatter parsing and typed document metadata
 - 17 Implement repository scanner and kind resolution
 - 18 Implement global ID allocation and filename generation
+- 19 Implement schema loading and frontmatter validation

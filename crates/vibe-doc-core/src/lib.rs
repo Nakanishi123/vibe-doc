@@ -5,6 +5,7 @@ mod document;
 mod metadata;
 mod parser;
 mod repository;
+mod validation;
 
 pub use allocation::{
     allocate_next_document_id, document_filename, document_relative_path, duplicate_document_ids,
@@ -24,6 +25,10 @@ pub use parser::{parse_markdown_document, parse_numbered_document, ParseError, P
 pub use repository::{
     expected_kind_for_path, expected_kind_for_relative_path, scan_repository, RepositoryDocument,
     RepositoryScanError,
+};
+pub use validation::{
+    load_schema_set, validate_documents, validate_repository, SchemaLoadError, SchemaSet,
+    ValidationCode, ValidationIssue, ValidationReport, ValidationRunError,
 };
 
 /// Stable crate identifier used by workspace smoke tests.
