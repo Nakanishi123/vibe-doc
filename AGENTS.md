@@ -16,7 +16,6 @@ This repository is managed as a vibe-doc project before the real `vdoc` CLI exis
 
 Repository documentation files are:
 
-- `AGENTS.md`
 - `docs/README.md`
 - `docs/specs/README.md`
 - `docs/specs/*.md`
