@@ -8,7 +8,8 @@ priority: medium
 specs:
   - 9
   - 10
-designs: []
+designs:
+  - 33
 adrs: []
 depends_on:
   - 17

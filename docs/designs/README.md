@@ -20,3 +20,9 @@ tags:
 ```
 
 Use ID-based references for related specs and ADRs.
+
+## Current Designs
+
+- `33`: vibe-doc CLI core design
+- `34`: vibe-doc Web server and UI design
+- `35`: vibe-doc controlled agent workflow design

@@ -7,7 +7,8 @@ status: planned
 priority: low
 specs:
   - 12
-designs: []
+designs:
+  - 35
 adrs: []
 depends_on:
   - 26

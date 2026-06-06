@@ -9,7 +9,9 @@ specs:
   - 10
   - 12
   - 14
-designs: []
+designs:
+  - 33
+  - 35
 adrs: []
 depends_on:
   - 17
