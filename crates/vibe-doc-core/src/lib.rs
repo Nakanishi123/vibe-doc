@@ -2,6 +2,7 @@
 
 mod allocation;
 mod document;
+mod init;
 mod metadata;
 mod parser;
 mod repository;
@@ -15,6 +16,9 @@ pub use allocation::{
 pub use document::{
     FrontmatterBlock, MarkdownDocument, NumberedDocument, SourceId, SourceLocation, SourceSpan,
     UnnumberedDocument,
+};
+pub use init::{
+    init_repository, InitChange, InitChangeAction, InitChangeKind, InitError, InitOptions, InitPlan,
 };
 pub use metadata::{
     AdrMetadata, AdrStatus, CommonMetadata, DesignMetadata, DesignStatus, DocumentId, DocumentKind,
