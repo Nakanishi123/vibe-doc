@@ -12,7 +12,6 @@ No tasks.
 
 ## Planned
 
-- 17 Implement repository scanner and kind resolution
 - 18 Implement global ID allocation and filename generation
 - 19 Implement schema loading and frontmatter validation
 - 20 Implement `vdoc init`
@@ -37,3 +36,4 @@ No tasks.
 
 - 15 Scaffold Rust workspace and crate boundaries
 - 16 Implement frontmatter parsing and typed document metadata
+- 17 Implement repository scanner and kind resolution
