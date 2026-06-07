@@ -4,6 +4,7 @@ mod allocation;
 mod document;
 mod init;
 mod metadata;
+mod new;
 mod parser;
 mod repository;
 mod validation;
@@ -24,6 +25,10 @@ pub use metadata::{
     AdrMetadata, AdrStatus, CommonMetadata, DesignMetadata, DesignStatus, DocumentId, DocumentKind,
     DocumentMetadata, Priority, SpecMetadata, SpecStatus, TaskIndexMetadata, TaskMetadata,
     TaskStatus, TaskType,
+};
+pub use new::{
+    new_adr, new_design, new_spec, new_task, NewAdrOptions, NewChange, NewChangeAction, NewError,
+    NewOptions, NewPlan, NewTaskOptions,
 };
 pub use parser::{parse_markdown_document, parse_numbered_document, ParseError, ParseErrorKind};
 pub use repository::{

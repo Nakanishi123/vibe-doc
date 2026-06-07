@@ -12,7 +12,6 @@ No tasks.
 
 ## Planned
 
-- 21 Implement `vdoc new` document commands
 - 22 Implement `vdoc list` and `vdoc show`
 - 23 Implement validation and check command output
 - 24 Implement task index rebuild
@@ -37,3 +36,4 @@ No tasks.
 - 18 Implement global ID allocation and filename generation
 - 19 Implement schema loading and frontmatter validation
 - 20 Implement `vdoc init`
+- 21 Implement `vdoc new` document commands
