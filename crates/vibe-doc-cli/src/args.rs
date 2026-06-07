@@ -22,6 +22,8 @@ pub(crate) enum Command {
     Check(ValidationCommand),
     Start(StartCommand),
     Complete(CompleteCommand),
+    Context(ContextCommand),
+    Guard(GuardCommand),
 }
 
 #[derive(Debug, Parser)]
@@ -189,6 +191,42 @@ pub(crate) struct CompleteTaskCommand {
     pub(crate) date: Option<String>,
     #[arg(long)]
     pub(crate) result: Option<String>,
+}
+
+#[derive(Debug, Parser)]
+pub(crate) struct ContextCommand {
+    #[command(subcommand)]
+    pub(crate) target: ContextTargetCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub(crate) enum ContextTargetCommand {
+    Task(ContextTaskCommand),
+}
+
+#[derive(Debug, Parser)]
+pub(crate) struct ContextTaskCommand {
+    pub(crate) id: u64,
+    #[arg(long)]
+    pub(crate) json: bool,
+}
+
+#[derive(Debug, Parser)]
+pub(crate) struct GuardCommand {
+    #[command(subcommand)]
+    pub(crate) target: GuardTargetCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub(crate) enum GuardTargetCommand {
+    Task(GuardTaskCommand),
+}
+
+#[derive(Debug, Parser)]
+pub(crate) struct GuardTaskCommand {
+    pub(crate) id: u64,
+    #[arg(long)]
+    pub(crate) json: bool,
 }
 
 impl ShowCommand {

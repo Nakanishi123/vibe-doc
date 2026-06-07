@@ -5,8 +5,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use vibe_doc_core::{
     AdrStatus, DesignStatus, DocumentMetadata, InitError, InitPlan, NewError, NewPlan, Priority,
-    RepositoryDocument, SpecStatus, TaskIndexRebuildError, TaskIndexRebuildPlan,
-    TaskLifecycleError, TaskLifecyclePlan, TaskStatus, TaskType, ValidationIssue, ValidationReport,
+    RepositoryDocument, SpecStatus, TaskContext, TaskContextItem, TaskGuardIssue, TaskGuardReport,
+    TaskIndexRebuildError, TaskIndexRebuildPlan, TaskLifecycleError, TaskLifecyclePlan, TaskStatus,
+    TaskType, ValidationIssue, ValidationReport,
 };
 
 pub(crate) fn print_init_text(plan: &InitPlan, dry_run: bool) {
@@ -179,6 +180,126 @@ pub(crate) fn print_task_lifecycle_json(command: &str, plan: &TaskLifecyclePlan,
             "changes": changes,
         })
     );
+}
+
+pub(crate) fn print_task_context_text(root: &Path, context: &TaskContext) {
+    println!("vdoc context task {}:", context.task_id.get());
+    for item in &context.items {
+        let title = item.title.as_deref().unwrap_or("");
+        println!(
+            "- {} {}{}",
+            item.kind.as_str(),
+            display_path(&relative_path(root, &item.path)),
+            if title.is_empty() {
+                String::new()
+            } else {
+                format!(" {title}")
+            }
+        );
+    }
+    for item in &context.items {
+        println!(
+            "\n--- {} {} ---\n{}",
+            item.kind.as_str(),
+            display_path(&relative_path(root, &item.path)),
+            item.content
+        );
+    }
+}
+
+pub(crate) fn print_task_context_json(root: &Path, context: &TaskContext) {
+    let items: Vec<_> = context
+        .items
+        .iter()
+        .map(|item| task_context_item_json(root, item))
+        .collect();
+    println!(
+        "{}",
+        json!({
+            "command": "context task",
+            "task_id": context.task_id.get(),
+            "items": items,
+        })
+    );
+}
+
+pub(crate) fn print_task_guard_text(root: &Path, report: &TaskGuardReport) {
+    if report.ready {
+        println!("vdoc guard task {}: ready", report.task_id.get());
+        return;
+    }
+
+    println!(
+        "vdoc guard task {}: {} issue{}",
+        report.task_id.get(),
+        report.issues.len(),
+        if report.issues.len() == 1 { "" } else { "s" }
+    );
+    for issue in &report.issues {
+        match &issue.path {
+            Some(path) => println!(
+                "- [{}] {}: {}",
+                issue.code.as_str(),
+                display_path(&relative_path(root, path)),
+                issue.message
+            ),
+            None => println!("- [{}] {}", issue.code.as_str(), issue.message),
+        }
+    }
+}
+
+pub(crate) fn print_task_guard_json(root: &Path, report: &TaskGuardReport) {
+    let issues: Vec<_> = report
+        .issues
+        .iter()
+        .map(|issue| task_guard_issue_json(root, issue))
+        .collect();
+    println!(
+        "{}",
+        json!({
+            "command": "guard task",
+            "task_id": report.task_id.get(),
+            "ready": report.ready,
+            "issue_count": report.issues.len(),
+            "issues": issues,
+        })
+    );
+}
+
+fn task_context_item_json(root: &Path, item: &TaskContextItem) -> Value {
+    let mut value = json!({
+        "kind": item.kind.as_str(),
+        "path": display_path(&relative_path(root, &item.path)),
+        "content": item.content,
+    });
+    if let Value::Object(ref mut object) = value {
+        if let Some(id) = item.document_id {
+            object.insert("id".to_string(), json!(id.get()));
+        }
+        if let Some(title) = &item.title {
+            object.insert("title".to_string(), json!(title));
+        }
+    }
+    value
+}
+
+fn task_guard_issue_json(root: &Path, issue: &TaskGuardIssue) -> Value {
+    let mut value = json!({
+        "code": issue.code.as_str(),
+        "message": issue.message,
+    });
+    if let Value::Object(ref mut object) = value {
+        if let Some(id) = issue.document_id {
+            object.insert("id".to_string(), json!(id.get()));
+        }
+        if let Some(path) = &issue.path {
+            object.insert(
+                "path".to_string(),
+                json!(display_path(&relative_path(root, path))),
+            );
+        }
+    }
+    value
 }
 
 pub(crate) fn print_task_lifecycle_error_json(error: &TaskLifecycleError) {

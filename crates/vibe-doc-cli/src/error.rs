@@ -2,7 +2,7 @@ use crate::args::ShowKindArg;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use vibe_doc_core::{
-    DocumentId, InitError, NewError, RepositoryScanError, TaskIndexRebuildError,
+    DocumentId, InitError, NewError, RepositoryScanError, TaskContextError, TaskIndexRebuildError,
     TaskLifecycleError, ValidationRunError,
 };
 
@@ -20,6 +20,10 @@ pub(crate) enum CliError {
     TaskLifecycle {
         json: bool,
         error: TaskLifecycleError,
+    },
+    TaskContext {
+        json: bool,
+        error: TaskContextError,
     },
     Scan(RepositoryScanError),
     ValidationRun {
@@ -55,6 +59,12 @@ impl std::fmt::Display for CliError {
                 }
                 error.fmt(formatter)
             }
+            Self::TaskContext { json, error } => {
+                if *json {
+                    print_task_context_error_json(error);
+                }
+                error.fmt(formatter)
+            }
             Self::Scan(error) => error.fmt(formatter),
             Self::ValidationRun {
                 command,
@@ -76,6 +86,40 @@ impl std::fmt::Display for CliError {
             Self::Usage(message) => formatter.write_str(message),
         }
     }
+}
+
+fn print_task_context_error_json(error: &TaskContextError) {
+    let payload = match error {
+        TaskContextError::TaskNotFound { id } => json!({
+            "error": {
+                "code": "TASK_CONTEXT_TASK_NOT_FOUND",
+                "message": error.to_string(),
+                "task_id": id.get(),
+            }
+        }),
+        TaskContextError::MissingRelatedDocument { id, kind } => json!({
+            "error": {
+                "code": "TASK_CONTEXT_MISSING_RELATED_DOCUMENT",
+                "message": error.to_string(),
+                "id": id.get(),
+                "kind": kind.as_str(),
+            }
+        }),
+        TaskContextError::RepositoryScan(_) => json!({
+            "error": {
+                "code": "TASK_CONTEXT_SCAN_FAILED",
+                "message": error.to_string(),
+            }
+        }),
+        TaskContextError::ReadFile { path, .. } => json!({
+            "error": {
+                "code": "TASK_CONTEXT_READ_FAILED",
+                "message": error.to_string(),
+                "path": path.to_string_lossy().replace('\\', "/"),
+            }
+        }),
+    };
+    eprintln!("{payload}");
 }
 
 impl std::error::Error for CliError {}

@@ -231,6 +231,21 @@ Recommended error codes:
 - referenced designs
 - referenced ADRs
 
+Context output is deterministic. It orders items as agent instructions, task,
+specs by ID, designs by ID, and ADRs by ID.
+
+Context exits non-zero when the task references a spec, design, or ADR that
+cannot be resolved. It must not silently omit referenced documents.
+
+With `--json`, context output includes:
+
+- `command: "context task"`
+- `task_id`
+- `items`
+
+Each context item includes `kind`, `path`, and `content`. Numbered documents
+also include `id` and `title`.
+
 `vdoc guard task <id>` verifies that a task is ready to start:
 
 - the task exists
@@ -239,6 +254,20 @@ Recommended error codes:
 - dependencies are complete
 - related specs, designs, and ADRs exist
 - related ADRs are not rejected or superseded
+
+Guard exits successfully only when the task is ready. Guard exits non-zero when
+readiness issues are reported.
+
+With `--json`, guard output includes:
+
+- `command: "guard task"`
+- `task_id`
+- `ready`
+- `issue_count`
+- `issues`
+
+Guard issue objects include stable `code` and `message` fields, plus `id` or
+`path` when available.
 
 ## Schema and Explain
 

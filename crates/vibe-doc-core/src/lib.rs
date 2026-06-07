@@ -8,6 +8,7 @@ mod metadata;
 mod new;
 mod parser;
 mod repository;
+mod task_context;
 mod task_index;
 mod validation;
 
@@ -40,6 +41,10 @@ pub use parser::{parse_markdown_document, parse_numbered_document, ParseError, P
 pub use repository::{
     expected_kind_for_path, expected_kind_for_relative_path, scan_repository, RepositoryDocument,
     RepositoryScanError,
+};
+pub use task_context::{
+    guard_task, task_context, TaskContext, TaskContextError, TaskContextItem, TaskContextItemKind,
+    TaskGuardCode, TaskGuardIssue, TaskGuardReport,
 };
 pub use task_index::{
     rebuild_task_index, TaskIndexRebuildAction, TaskIndexRebuildError, TaskIndexRebuildOptions,

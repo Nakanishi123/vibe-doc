@@ -12,7 +12,6 @@ No tasks.
 
 ## Planned
 
-- 26 Implement task context and guard commands
 - 27 Scaffold Web UI app and shared API types
 - 28 Implement server document APIs
 - 29 Implement validation and task mutation APIs
@@ -37,3 +36,4 @@ No tasks.
 - 23 Implement validation and check command output
 - 24 Implement task index rebuild
 - 25 Implement task start and complete lifecycle
+- 26 Implement task context and guard commands

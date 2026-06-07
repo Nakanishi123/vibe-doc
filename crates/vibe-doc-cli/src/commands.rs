@@ -1,14 +1,15 @@
 use crate::args::{
-    Cli, Command, CompleteCommand, CompleteTargetCommand, InitCommandOptions, ListCommand,
-    NewCommand, NewCommandOptions, NewKindCommand, RebuildCommand, RebuildIndexCommand,
-    RebuildTargetCommand, ShowCommand, ShowMode, StartCommand, StartTargetCommand,
-    ValidationCommand,
+    Cli, Command, CompleteCommand, CompleteTargetCommand, ContextCommand, ContextTargetCommand,
+    GuardCommand, GuardTargetCommand, InitCommandOptions, ListCommand, NewCommand,
+    NewCommandOptions, NewKindCommand, RebuildCommand, RebuildIndexCommand, RebuildTargetCommand,
+    ShowCommand, ShowMode, StartCommand, StartTargetCommand, ValidationCommand,
 };
 use crate::error::CliError;
 use crate::format::{
     display_path, document_summary_json, metadata_kind, print_init_error_json, print_init_json,
     print_init_text, print_new_error_json, print_new_json, print_new_text,
     print_rebuild_index_error_json, print_rebuild_index_json, print_rebuild_index_text,
+    print_task_context_json, print_task_context_text, print_task_guard_json, print_task_guard_text,
     print_task_lifecycle_json, print_task_lifecycle_text, print_validation_json,
     print_validation_text, relative_path, show_json,
 };
@@ -20,8 +21,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use vibe_doc_core::{
     check_repository, init_repository, new_adr, new_design, new_spec, new_task, rebuild_task_index,
-    scan_repository, start_task, validate_repository, CompleteTaskOptions, DocumentId,
-    DocumentMetadata, InitOptions, NewAdrOptions, NewTaskOptions, RepositoryDocument,
+    scan_repository, start_task, task_context, validate_repository, CompleteTaskOptions,
+    DocumentId, DocumentMetadata, InitOptions, NewAdrOptions, NewTaskOptions, RepositoryDocument,
     TaskIndexRebuildOptions, TaskLifecycleOptions, ValidationReport,
 };
 
@@ -40,10 +41,55 @@ pub(crate) fn run(cli: Cli) -> Result<(), CliError> {
         }
         Some(Command::Start(command)) => run_start(command),
         Some(Command::Complete(command)) => run_complete(command),
+        Some(Command::Context(command)) => run_context(command),
+        Some(Command::Guard(command)) => run_guard(command),
         None => {
             Cli::command().print_help().map_err(CliError::WriteHelp)?;
             println!();
             Ok(())
+        }
+    }
+}
+
+fn run_context(command: ContextCommand) -> Result<(), CliError> {
+    match command.target {
+        ContextTargetCommand::Task(command) => {
+            let root = env::current_dir().map_err(CliError::CurrentDir)?;
+            let id = document_id_from_u64(command.id)?;
+            let context = task_context(&root, id).map_err(|error| CliError::TaskContext {
+                json: command.json,
+                error,
+            })?;
+            if command.json {
+                print_task_context_json(&root, &context);
+            } else {
+                print_task_context_text(&root, &context);
+            }
+            Ok(())
+        }
+    }
+}
+
+fn run_guard(command: GuardCommand) -> Result<(), CliError> {
+    match command.target {
+        GuardTargetCommand::Task(command) => {
+            let root = env::current_dir().map_err(CliError::CurrentDir)?;
+            let id = document_id_from_u64(command.id)?;
+            let report =
+                vibe_doc_core::guard_task(&root, id).map_err(|error| CliError::TaskContext {
+                    json: command.json,
+                    error,
+                })?;
+            if command.json {
+                print_task_guard_json(&root, &report);
+            } else {
+                print_task_guard_text(&root, &report);
+            }
+            if report.ready {
+                Ok(())
+            } else {
+                Err(CliError::ReportedIssues)
+            }
         }
     }
 }
