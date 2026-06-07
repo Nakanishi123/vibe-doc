@@ -42,7 +42,7 @@ This keeps the same behavior available to the future server and Web UI without r
 
 `crates/vibe-doc-cli` contains:
 
-- Command parsing and option handling.
+- Command parsing and option handling through `clap`.
 - Human-readable output.
 - Stable JSON output.
 - Machine-readable error payloads.
@@ -52,7 +52,7 @@ This keeps the same behavior available to the future server and Web UI without r
 
 Mutation commands should follow this shape:
 
-1. Parse CLI arguments into command options.
+1. Parse CLI arguments into command options with `clap`.
 2. Resolve the repository root from the current directory.
 3. Ask `vibe-doc-core` to build a plan or perform the operation.
 4. For `--dry-run`, print the plan without writing files.
@@ -111,4 +111,7 @@ Later commands should add similar tests for JSON output, dry-run planning, and r
 
 Putting command logic directly in `vibe-doc-cli` would be faster at first, but it would force the server to duplicate CLI behavior or shell out to `vdoc`.
 
-Using a full CLI framework immediately may become useful, but the early command surface can remain hand-written while behavior and output contracts are still settling.
+Keeping argument parsing hand-written avoids a dependency, but it becomes brittle
+as nested commands, repeated flags, enum values, and generated help text expand.
+`clap` should be used for parsing while repository behavior stays in
+`vibe-doc-core`.

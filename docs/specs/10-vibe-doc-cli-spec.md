@@ -26,6 +26,16 @@ The CLI must support:
 - ID-based operations
 - safe use by LLM agents
 
+## Argument Parsing
+
+The CLI should use `clap` for argument parsing and help generation.
+
+The command tree, option names, and accepted enum values remain part of this
+specification. `clap` is an implementation dependency for parsing and usage
+text, not the owner of product behavior. Command handlers should still translate
+parsed arguments into typed options and call `vibe-doc-core` for repository
+behavior.
+
 ## Commands
 
 MVP CLI commands:
