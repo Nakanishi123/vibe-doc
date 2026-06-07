@@ -1,20 +1,22 @@
 use crate::args::{
     Cli, Command, InitCommandOptions, ListCommand, NewCommand, NewCommandOptions, NewKindCommand,
-    ShowCommand, ShowMode,
+    ShowCommand, ShowMode, ValidationCommand,
 };
 use crate::error::CliError;
 use crate::format::{
     display_path, document_summary_json, metadata_kind, print_init_error_json, print_init_json,
-    print_init_text, print_new_error_json, print_new_json, print_new_text, relative_path,
-    show_json,
+    print_init_text, print_new_error_json, print_new_json, print_new_text, print_validation_json,
+    print_validation_text, relative_path, show_json,
 };
 use clap::CommandFactory;
 use serde_json::json;
 use std::env;
 use std::fs;
+use std::path::{Path, PathBuf};
 use vibe_doc_core::{
-    init_repository, new_adr, new_design, new_spec, new_task, scan_repository, DocumentId,
-    DocumentMetadata, InitOptions, NewAdrOptions, NewTaskOptions, RepositoryDocument,
+    check_repository, init_repository, new_adr, new_design, new_spec, new_task, scan_repository,
+    validate_repository, DocumentId, DocumentMetadata, InitOptions, NewAdrOptions, NewTaskOptions,
+    RepositoryDocument, ValidationReport,
 };
 
 pub(crate) fn run(cli: Cli) -> Result<(), CliError> {
@@ -23,11 +25,46 @@ pub(crate) fn run(cli: Cli) -> Result<(), CliError> {
         Some(Command::New(command)) => run_new(command),
         Some(Command::List(command)) => run_list(command),
         Some(Command::Show(command)) => run_show(command),
+        Some(Command::Validate(command)) => {
+            run_validation("validate", command, |root| validate_repository(root))
+        }
+        Some(Command::Check(command)) => {
+            run_validation("check", command, |root| check_repository(root))
+        }
         None => {
             Cli::command().print_help().map_err(CliError::WriteHelp)?;
             println!();
             Ok(())
         }
+    }
+}
+
+fn run_validation<F>(
+    command_name: &'static str,
+    command: ValidationCommand,
+    run: F,
+) -> Result<(), CliError>
+where
+    F: FnOnce(&Path) -> Result<ValidationReport, vibe_doc_core::ValidationRunError>,
+{
+    let root = env::current_dir().map_err(CliError::CurrentDir)?;
+    let mut report = run(&root).map_err(|error| CliError::ValidationRun {
+        command: command_name,
+        json: command.json,
+        error,
+    })?;
+    filter_validation_report(&root, &command.paths, &mut report);
+
+    if command.json {
+        print_validation_json(command_name, &report);
+    } else {
+        print_validation_text(command_name, &report);
+    }
+
+    if report.is_valid() {
+        Ok(())
+    } else {
+        Err(CliError::ReportedIssues)
     }
 }
 
@@ -322,6 +359,43 @@ fn list_filter_matches(command: &ListCommand, document: &RepositoryDocument) -> 
         }
         _ => command.status.is_none() && command.task_type.is_none() && command.priority.is_none(),
     }
+}
+
+fn filter_validation_report(root: &Path, paths: &[PathBuf], report: &mut ValidationReport) {
+    if paths.is_empty() {
+        return;
+    }
+
+    let original_issues = report.issues.clone();
+    let filters: Vec<_> = paths
+        .iter()
+        .map(|path| normalize_filter_path(root, path))
+        .collect();
+
+    report.issues.retain(|issue| {
+        issue.path.as_ref().is_some_and(|path| {
+            filters
+                .iter()
+                .any(|filter| path == filter || path.starts_with(filter))
+        })
+    });
+
+    if report.incomplete && report.issues.is_empty() {
+        report.issues = original_issues;
+    }
+}
+
+fn normalize_filter_path(root: &Path, path: &Path) -> PathBuf {
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        root.join(path)
+    };
+    absolute
+        .strip_prefix(root)
+        .unwrap_or(path)
+        .components()
+        .collect()
 }
 
 fn document_id_from_u64(value: u64) -> Result<DocumentId, CliError> {

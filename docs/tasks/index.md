@@ -12,7 +12,6 @@ No tasks.
 
 ## Planned
 
-- 23 Implement validation and check command output
 - 24 Implement task index rebuild
 - 25 Implement task start and complete lifecycle
 - 26 Implement task context and guard commands
@@ -34,6 +33,7 @@ No tasks.
 - 17 Implement repository scanner and kind resolution
 - 18 Implement global ID allocation and filename generation
 - 19 Implement schema loading and frontmatter validation
-- 20 Implement `vdoc init`
-- 21 Implement `vdoc new` document commands
-- 22 Implement `vdoc list` and `vdoc show`
+- 20 Implement vdoc init
+- 21 Implement vdoc new document commands
+- 22 Implement vdoc list and show
+- 23 Implement validation and check command output

@@ -5,7 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use vibe_doc_core::{
     AdrStatus, DesignStatus, DocumentMetadata, InitError, InitPlan, NewError, NewPlan, Priority,
-    RepositoryDocument, SpecStatus, TaskStatus, TaskType,
+    RepositoryDocument, SpecStatus, TaskStatus, TaskType, ValidationIssue, ValidationReport,
 };
 
 pub(crate) fn print_init_text(plan: &InitPlan, dry_run: bool) {
@@ -253,6 +253,57 @@ pub(crate) fn show_json(
         "command": "show",
         "document": value,
     }))
+}
+
+pub(crate) fn print_validation_text(command: &str, report: &ValidationReport) {
+    if report.is_valid() {
+        println!("vdoc {command}: ok");
+        return;
+    }
+
+    println!(
+        "vdoc {command}: {} issue{}",
+        report.issues.len(),
+        if report.issues.len() == 1 { "" } else { "s" }
+    );
+    for issue in &report.issues {
+        match &issue.path {
+            Some(path) => println!(
+                "- [{}] {}: {}",
+                issue.code.as_str(),
+                display_path(path),
+                issue.message
+            ),
+            None => println!("- [{}] {}", issue.code.as_str(), issue.message),
+        }
+    }
+}
+
+pub(crate) fn print_validation_json(command: &str, report: &ValidationReport) {
+    let issues: Vec<_> = report.issues.iter().map(validation_issue_json).collect();
+    println!(
+        "{}",
+        json!({
+            "command": command,
+            "valid": report.is_valid(),
+            "incomplete": report.incomplete,
+            "issue_count": report.issues.len(),
+            "issues": issues,
+        })
+    );
+}
+
+pub(crate) fn validation_issue_json(issue: &ValidationIssue) -> Value {
+    let mut value = json!({
+        "code": issue.code.as_str(),
+        "message": issue.message,
+    });
+
+    if let (Value::Object(ref mut object), Some(path)) = (&mut value, &issue.path) {
+        object.insert("path".to_string(), json!(display_path(path)));
+    }
+
+    value
 }
 
 pub(crate) fn metadata_kind(metadata: &DocumentMetadata) -> &'static str {

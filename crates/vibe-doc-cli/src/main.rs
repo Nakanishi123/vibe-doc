@@ -12,6 +12,7 @@ use std::process::ExitCode;
 fn main() -> ExitCode {
     match commands::run(Cli::parse()) {
         Ok(()) => ExitCode::SUCCESS,
+        Err(error::CliError::ReportedIssues) => ExitCode::from(1),
         Err(error) => {
             eprintln!("{error}");
             ExitCode::from(1)

@@ -36,8 +36,8 @@ pub use repository::{
     RepositoryScanError,
 };
 pub use validation::{
-    load_schema_set, validate_documents, validate_repository, SchemaLoadError, SchemaSet,
-    ValidationCode, ValidationIssue, ValidationReport, ValidationRunError,
+    check_repository, load_schema_set, validate_documents, validate_repository, SchemaLoadError,
+    SchemaSet, ValidationCode, ValidationIssue, ValidationReport, ValidationRunError,
 };
 
 /// Stable crate identifier used by workspace smoke tests.

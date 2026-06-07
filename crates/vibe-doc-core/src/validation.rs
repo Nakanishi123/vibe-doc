@@ -25,7 +25,9 @@ pub enum ValidationCode {
     TaskDoneInActive,
     TaskActiveInDone,
     AdrSupersededWithoutReplacement,
+    IndexOutOfSync,
     SchemaNotFound,
+    ReadmeNotFound,
 }
 
 impl ValidationCode {
@@ -45,7 +47,9 @@ impl ValidationCode {
             Self::TaskDoneInActive => "TASK_DONE_IN_ACTIVE",
             Self::TaskActiveInDone => "TASK_ACTIVE_IN_DONE",
             Self::AdrSupersededWithoutReplacement => "ADR_SUPERSEDED_WITHOUT_REPLACEMENT",
+            Self::IndexOutOfSync => "INDEX_OUT_OF_SYNC",
             Self::SchemaNotFound => "SCHEMA_NOT_FOUND",
+            Self::ReadmeNotFound => "README_NOT_FOUND",
         }
     }
 }
@@ -78,12 +82,13 @@ impl ValidationIssue {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationReport {
     pub issues: Vec<ValidationIssue>,
+    pub incomplete: bool,
 }
 
 impl ValidationReport {
     /// Return true when no validation issues were found.
     pub fn is_valid(&self) -> bool {
-        self.issues.is_empty()
+        self.issues.is_empty() && !self.incomplete
     }
 }
 
@@ -227,9 +232,44 @@ pub fn validate_repository(root: impl AsRef<Path>) -> Result<ValidationReport, V
                 Some(relative_path(root, Path::new(error.source.as_str()))),
                 error.message,
             )],
+            incomplete: true,
         }),
         Err(error) => Err(ValidationRunError::RepositoryScan(error)),
     }
+}
+
+/// Run validation plus broader repository consistency checks.
+pub fn check_repository(root: impl AsRef<Path>) -> Result<ValidationReport, ValidationRunError> {
+    let root = root.as_ref();
+    let validation_report = validate_repository(root)?;
+    let incomplete = validation_report.incomplete;
+    let mut issues = validation_report.issues;
+
+    for readme in REQUIRED_READMES {
+        let path = PathBuf::from(readme);
+        if !root.join(&path).is_file() {
+            issues.push(ValidationIssue::new(
+                ValidationCode::ReadmeNotFound,
+                Some(path.clone()),
+                format!("README file {} was not found", path.display()),
+            ));
+        }
+    }
+
+    match scan_repository(root) {
+        Ok(documents) => check_task_index(root, &documents, &mut issues),
+        Err(RepositoryScanError::Parse(_)) => {}
+        Err(error) => return Err(ValidationRunError::RepositoryScan(error)),
+    }
+
+    issues.sort_by(|left, right| {
+        left.path
+            .cmp(&right.path)
+            .then_with(|| left.code.cmp(&right.code))
+            .then_with(|| left.message.cmp(&right.message))
+    });
+
+    Ok(ValidationReport { issues, incomplete })
 }
 
 /// Validate already scanned documents against loaded schemas and built-in rules.
@@ -301,7 +341,10 @@ pub fn validate_documents(
             .then_with(|| left.message.cmp(&right.message))
     });
 
-    ValidationReport { issues }
+    ValidationReport {
+        issues,
+        incomplete: false,
+    }
 }
 
 fn load_optional_schema(root: &Path, file_name: &str) -> Result<Option<Value>, SchemaLoadError> {
@@ -317,6 +360,123 @@ fn load_optional_schema(root: &Path, file_name: &str) -> Result<Option<Value>, S
     serde_json::from_str(&raw)
         .map(Some)
         .map_err(|source| SchemaLoadError::InvalidJson { path, source })
+}
+
+const REQUIRED_READMES: &[&str] = &[
+    "docs/README.md",
+    "docs/specs/README.md",
+    "docs/designs/README.md",
+    "docs/adr/README.md",
+    "docs/tasks/README.md",
+];
+
+fn check_task_index(
+    root: &Path,
+    documents: &[RepositoryDocument],
+    issues: &mut Vec<ValidationIssue>,
+) {
+    let path = PathBuf::from("docs/tasks/index.md");
+    let Some(index_document) = documents
+        .iter()
+        .find(|document| document.document.metadata.common().kind == DocumentKind::TaskIndex)
+    else {
+        issues.push(ValidationIssue::new(
+            ValidationCode::IndexOutOfSync,
+            Some(path),
+            "task index document was not found",
+        ));
+        return;
+    };
+
+    let Ok(markdown) = fs::read_to_string(root.join(&path)) else {
+        issues.push(ValidationIssue::new(
+            ValidationCode::IndexOutOfSync,
+            Some(path),
+            "task index document could not be read",
+        ));
+        return;
+    };
+
+    let actual = task_index_entries(&markdown);
+    let expected = expected_task_index_entries(documents);
+    if actual != expected {
+        issues.push(ValidationIssue::new(
+            ValidationCode::IndexOutOfSync,
+            Some(relative_path(root, &index_document.path)),
+            "task index is out of sync with task documents",
+        ));
+    }
+}
+
+fn expected_task_index_entries(
+    documents: &[RepositoryDocument],
+) -> BTreeMap<String, Vec<(u64, String)>> {
+    let mut entries = empty_task_index_entries();
+
+    for document in documents {
+        let DocumentMetadata::Task(task) = &document.document.metadata else {
+            continue;
+        };
+        let section = match task.status {
+            crate::TaskStatus::Doing => "Doing",
+            crate::TaskStatus::Planned => "Planned",
+            crate::TaskStatus::Blocked => "Blocked",
+            crate::TaskStatus::Done | crate::TaskStatus::Dropped => "Done",
+        };
+        entries
+            .entry(section.to_string())
+            .or_default()
+            .push((task.common.id.get(), task.common.title.clone()));
+    }
+
+    for values in entries.values_mut() {
+        values.sort_by_key(|(id, _)| *id);
+    }
+
+    entries
+}
+
+fn task_index_entries(markdown: &str) -> BTreeMap<String, Vec<(u64, String)>> {
+    let mut entries = empty_task_index_entries();
+    let mut current_section: Option<String> = None;
+
+    for line in markdown.lines() {
+        if let Some(section) = line.strip_prefix("## ") {
+            let section = section.trim();
+            current_section = entries.contains_key(section).then(|| section.to_string());
+            continue;
+        }
+
+        let Some(section) = &current_section else {
+            continue;
+        };
+        let Some(item) = line.strip_prefix("- ") else {
+            continue;
+        };
+        let Some((id, title)) = item.split_once(' ') else {
+            continue;
+        };
+        let Ok(id) = id.parse::<u64>() else {
+            continue;
+        };
+        entries
+            .entry(section.clone())
+            .or_default()
+            .push((id, title.to_string()));
+    }
+
+    for values in entries.values_mut() {
+        values.sort_by_key(|(id, _)| *id);
+    }
+
+    entries
+}
+
+fn empty_task_index_entries() -> BTreeMap<String, Vec<(u64, String)>> {
+    ["Doing", "Planned", "Blocked", "Done"]
+        .into_iter()
+        .map(|section| (section.to_string(), Vec::new()))
+        .collect()
 }
 
 fn code_for_parse_error(error: &crate::ParseError) -> ValidationCode {

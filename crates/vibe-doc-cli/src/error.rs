@@ -1,7 +1,7 @@
 use crate::args::ShowKindArg;
 use serde_json::{json, Value};
 use std::path::PathBuf;
-use vibe_doc_core::{DocumentId, InitError, NewError, RepositoryScanError};
+use vibe_doc_core::{DocumentId, InitError, NewError, RepositoryScanError, ValidationRunError};
 
 #[derive(Debug)]
 pub(crate) enum CliError {
@@ -14,6 +14,12 @@ pub(crate) enum CliError {
     Init(InitError),
     New(NewError),
     Scan(RepositoryScanError),
+    ValidationRun {
+        command: &'static str,
+        json: bool,
+        error: ValidationRunError,
+    },
+    ReportedIssues,
     DocumentNotFound {
         id: DocumentId,
         kind: Option<ShowKindArg>,
@@ -35,6 +41,17 @@ impl std::fmt::Display for CliError {
             Self::Init(error) => error.fmt(formatter),
             Self::New(error) => error.fmt(formatter),
             Self::Scan(error) => error.fmt(formatter),
+            Self::ValidationRun {
+                command,
+                json,
+                error,
+            } => {
+                if *json {
+                    print_validation_run_error_json(command, error);
+                }
+                error.fmt(formatter)
+            }
+            Self::ReportedIssues => formatter.write_str("validation issues reported"),
             Self::DocumentNotFound { id, kind, json } => {
                 if *json {
                     print_not_found_error_json(*id, *kind);
@@ -70,4 +87,17 @@ fn missing_document_message(id: DocumentId, kind: Option<ShowKindArg>) -> String
     } else {
         format!("document {} was not found", id.get())
     }
+}
+
+fn print_validation_run_error_json(command: &str, error: &ValidationRunError) {
+    eprintln!(
+        "{}",
+        json!({
+            "error": {
+                "code": "VALIDATION_RUN_FAILED",
+                "command": command,
+                "message": error.to_string(),
+            }
+        })
+    );
 }

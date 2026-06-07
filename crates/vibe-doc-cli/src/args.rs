@@ -1,5 +1,6 @@
 use crate::error::CliError;
 use clap::{ArgGroup, Parser, Subcommand, ValueEnum};
+use std::path::PathBuf;
 use vibe_doc_core::{AdrStatus, DocumentMetadata, Priority, TaskStatus, TaskType};
 
 #[derive(Debug, Parser)]
@@ -16,6 +17,8 @@ pub(crate) enum Command {
     New(NewCommand),
     List(ListCommand),
     Show(ShowCommand),
+    Validate(ValidationCommand),
+    Check(ValidationCommand),
 }
 
 #[derive(Debug, Parser)]
@@ -110,6 +113,14 @@ pub(crate) struct ShowCommand {
     path_only: bool,
     #[arg(long)]
     frontmatter_only: bool,
+}
+
+#[derive(Debug, Parser)]
+pub(crate) struct ValidationCommand {
+    #[arg(long)]
+    pub(crate) json: bool,
+    #[arg(value_name = "PATH")]
+    pub(crate) paths: Vec<PathBuf>,
 }
 
 impl ShowCommand {
@@ -356,5 +367,21 @@ mod tests {
 
         assert_eq!(command.target().unwrap(), (Some(ShowKindArg::Task), 22));
         assert_eq!(command.mode(), ShowMode::PathOnly);
+    }
+
+    #[test]
+    fn parses_validation_paths_with_clap() {
+        let cli =
+            Cli::try_parse_from(["vdoc", "validate", "--json", "docs/tasks/active/23-task.md"])
+                .unwrap();
+        let Some(Command::Validate(command)) = cli.command else {
+            panic!("expected validate command");
+        };
+
+        assert!(command.json);
+        assert_eq!(
+            command.paths,
+            [PathBuf::from("docs/tasks/active/23-task.md")]
+        );
     }
 }
