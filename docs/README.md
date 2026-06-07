@@ -2,7 +2,7 @@
 
 This directory contains vibe-doc-managed project documentation.
 
-The source of truth is Markdown. Schemas describe frontmatter expectations for numbered vibe-doc documents, but the real product CLI is not available yet, so validation is manual for now.
+The source of truth is Markdown. Schemas describe frontmatter expectations for numbered vibe-doc documents, and implemented `vdoc` commands can validate and rebuild parts of the managed documentation.
 
 ## Structure
 
@@ -30,10 +30,10 @@ IDs are global across all numbered vibe-doc documents. Do not create separate ID
 
 ## Manual CLI Equivalent
 
-Until the CLI exists:
+For behavior not implemented by the CLI yet:
 
 - Create files by following the documented directory layout.
 - Assign the next global ID manually.
 - Keep references ID-based.
 - Update task status and location manually.
-- Update `docs/tasks/index.md` manually.
+- Use `vdoc rebuild index` after task frontmatter changes.

@@ -1,12 +1,14 @@
 use crate::args::{
     Cli, Command, InitCommandOptions, ListCommand, NewCommand, NewCommandOptions, NewKindCommand,
-    ShowCommand, ShowMode, ValidationCommand,
+    RebuildCommand, RebuildIndexCommand, RebuildTargetCommand, ShowCommand, ShowMode,
+    ValidationCommand,
 };
 use crate::error::CliError;
 use crate::format::{
     display_path, document_summary_json, metadata_kind, print_init_error_json, print_init_json,
-    print_init_text, print_new_error_json, print_new_json, print_new_text, print_validation_json,
-    print_validation_text, relative_path, show_json,
+    print_init_text, print_new_error_json, print_new_json, print_new_text,
+    print_rebuild_index_error_json, print_rebuild_index_json, print_rebuild_index_text,
+    print_validation_json, print_validation_text, relative_path, show_json,
 };
 use clap::CommandFactory;
 use serde_json::json;
@@ -14,15 +16,16 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use vibe_doc_core::{
-    check_repository, init_repository, new_adr, new_design, new_spec, new_task, scan_repository,
-    validate_repository, DocumentId, DocumentMetadata, InitOptions, NewAdrOptions, NewTaskOptions,
-    RepositoryDocument, ValidationReport,
+    check_repository, init_repository, new_adr, new_design, new_spec, new_task, rebuild_task_index,
+    scan_repository, validate_repository, DocumentId, DocumentMetadata, InitOptions, NewAdrOptions,
+    NewTaskOptions, RepositoryDocument, TaskIndexRebuildOptions, ValidationReport,
 };
 
 pub(crate) fn run(cli: Cli) -> Result<(), CliError> {
     match cli.command {
         Some(Command::Init(options)) => run_init(options),
         Some(Command::New(command)) => run_new(command),
+        Some(Command::Rebuild(command)) => run_rebuild(command),
         Some(Command::List(command)) => run_list(command),
         Some(Command::Show(command)) => run_show(command),
         Some(Command::Validate(command)) => {
@@ -35,6 +38,37 @@ pub(crate) fn run(cli: Cli) -> Result<(), CliError> {
             Cli::command().print_help().map_err(CliError::WriteHelp)?;
             println!();
             Ok(())
+        }
+    }
+}
+
+fn run_rebuild(command: RebuildCommand) -> Result<(), CliError> {
+    match command.target {
+        RebuildTargetCommand::Index(command) => run_rebuild_index(command),
+    }
+}
+
+fn run_rebuild_index(command: RebuildIndexCommand) -> Result<(), CliError> {
+    let root = env::current_dir().map_err(CliError::CurrentDir)?;
+    match rebuild_task_index(
+        &root,
+        TaskIndexRebuildOptions {
+            dry_run: command.dry_run,
+        },
+    ) {
+        Ok(plan) => {
+            if command.json {
+                print_rebuild_index_json(&plan, command.dry_run);
+            } else {
+                print_rebuild_index_text(&plan, command.dry_run);
+            }
+            Ok(())
+        }
+        Err(error) => {
+            if command.json {
+                print_rebuild_index_error_json(&error);
+            }
+            Err(CliError::RebuildIndex(error))
         }
     }
 }

@@ -189,6 +189,15 @@ Recommended error codes:
 
 ## Task Commands
 
+`vdoc rebuild index`:
+
+- reads task frontmatter from `docs/tasks/active/` and `docs/tasks/done/`
+- preserves `docs/tasks/index.md` frontmatter
+- groups tasks into Doing, Planned, Blocked, and Done sections
+- lists `done` and `dropped` task statuses in the Done section
+- supports `--dry-run`
+- supports `--json`
+
 `vdoc start task <id>`:
 
 - sets `status: doing`

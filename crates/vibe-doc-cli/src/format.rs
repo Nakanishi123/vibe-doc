@@ -5,7 +5,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use vibe_doc_core::{
     AdrStatus, DesignStatus, DocumentMetadata, InitError, InitPlan, NewError, NewPlan, Priority,
-    RepositoryDocument, SpecStatus, TaskStatus, TaskType, ValidationIssue, ValidationReport,
+    RepositoryDocument, SpecStatus, TaskIndexRebuildError, TaskIndexRebuildPlan, TaskStatus,
+    TaskType, ValidationIssue, ValidationReport,
 };
 
 pub(crate) fn print_init_text(plan: &InitPlan, dry_run: bool) {
@@ -85,6 +86,61 @@ pub(crate) fn print_new_json(cmd: &str, plan: &NewPlan, dry_run: bool, force: bo
             "changes": changes,
         })
     );
+}
+
+pub(crate) fn print_rebuild_index_text(plan: &TaskIndexRebuildPlan, dry_run: bool) {
+    if dry_run {
+        println!("vdoc rebuild index dry-run:");
+        print!("{}", plan.content);
+    } else {
+        println!("vdoc rebuild index complete:");
+        println!("- {} {}", plan.action.as_str(), display_path(&plan.path));
+    }
+}
+
+pub(crate) fn print_rebuild_index_json(plan: &TaskIndexRebuildPlan, dry_run: bool) {
+    println!(
+        "{}",
+        json!({
+            "command": "rebuild index",
+            "dry_run": dry_run,
+            "path": display_path(&plan.path),
+            "action": plan.action.as_str(),
+            "content": plan.content,
+        })
+    );
+}
+
+pub(crate) fn print_rebuild_index_error_json(error: &TaskIndexRebuildError) {
+    let payload = match error {
+        TaskIndexRebuildError::RepositoryScan(_) => json!({
+            "error": {
+                "code": "REBUILD_INDEX_SCAN_FAILED",
+                "message": error.to_string(),
+            }
+        }),
+        TaskIndexRebuildError::MissingTaskIndex => json!({
+            "error": {
+                "code": "REBUILD_INDEX_MISSING_TASK_INDEX",
+                "message": error.to_string(),
+            }
+        }),
+        TaskIndexRebuildError::ReadFile { path, .. } => json!({
+            "error": {
+                "code": "REBUILD_INDEX_READ_FAILED",
+                "message": error.to_string(),
+                "path": display_path(path),
+            }
+        }),
+        TaskIndexRebuildError::WriteFile { path, .. } => json!({
+            "error": {
+                "code": "REBUILD_INDEX_WRITE_FAILED",
+                "message": error.to_string(),
+                "path": display_path(path),
+            }
+        }),
+    };
+    eprintln!("{payload}");
 }
 
 pub(crate) fn print_new_error_json(error: &NewError) {

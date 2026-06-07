@@ -1,7 +1,9 @@
 use crate::args::ShowKindArg;
 use serde_json::{json, Value};
 use std::path::PathBuf;
-use vibe_doc_core::{DocumentId, InitError, NewError, RepositoryScanError, ValidationRunError};
+use vibe_doc_core::{
+    DocumentId, InitError, NewError, RepositoryScanError, TaskIndexRebuildError, ValidationRunError,
+};
 
 #[derive(Debug)]
 pub(crate) enum CliError {
@@ -13,6 +15,7 @@ pub(crate) enum CliError {
     },
     Init(InitError),
     New(NewError),
+    RebuildIndex(TaskIndexRebuildError),
     Scan(RepositoryScanError),
     ValidationRun {
         command: &'static str,
@@ -40,6 +43,7 @@ impl std::fmt::Display for CliError {
             }
             Self::Init(error) => error.fmt(formatter),
             Self::New(error) => error.fmt(formatter),
+            Self::RebuildIndex(error) => error.fmt(formatter),
             Self::Scan(error) => error.fmt(formatter),
             Self::ValidationRun {
                 command,

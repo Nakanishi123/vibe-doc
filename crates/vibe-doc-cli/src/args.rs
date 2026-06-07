@@ -15,10 +15,30 @@ pub(crate) struct Cli {
 pub(crate) enum Command {
     Init(InitCommandOptions),
     New(NewCommand),
+    Rebuild(RebuildCommand),
     List(ListCommand),
     Show(ShowCommand),
     Validate(ValidationCommand),
     Check(ValidationCommand),
+}
+
+#[derive(Debug, Parser)]
+pub(crate) struct RebuildCommand {
+    #[command(subcommand)]
+    pub(crate) target: RebuildTargetCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub(crate) enum RebuildTargetCommand {
+    Index(RebuildIndexCommand),
+}
+
+#[derive(Debug, Parser)]
+pub(crate) struct RebuildIndexCommand {
+    #[arg(long)]
+    pub(crate) dry_run: bool,
+    #[arg(long)]
+    pub(crate) json: bool,
 }
 
 #[derive(Debug, Parser)]

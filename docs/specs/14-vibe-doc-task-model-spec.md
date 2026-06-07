@@ -124,7 +124,17 @@ It has its own frontmatter and `kind: task-index`.
 
 The task index is not the source of truth. Each task file frontmatter is the source of truth.
 
-The CLI regenerates the index.
+The CLI regenerates the index with `vdoc rebuild index`.
+
+The generated index preserves the task-index frontmatter and replaces the body
+with stable sections:
+
+- Doing
+- Planned
+- Blocked
+- Done
+
+Tasks with `done` or `dropped` status are listed in the Done section.
 
 ## Reference Rules
 

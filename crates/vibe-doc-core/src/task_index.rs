@@ -1,0 +1,179 @@
+use crate::{scan_repository, DocumentId, DocumentMetadata, RepositoryDocument, TaskStatus};
+use std::fmt;
+use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
+
+/// Options for rebuilding the task index.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct TaskIndexRebuildOptions {
+    pub dry_run: bool,
+}
+
+/// A planned or applied task index rebuild.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TaskIndexRebuildPlan {
+    pub path: PathBuf,
+    pub action: TaskIndexRebuildAction,
+    pub content: String,
+}
+
+/// The action planned or performed for the task index.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TaskIndexRebuildAction {
+    Overwrite,
+    Keep,
+}
+
+impl TaskIndexRebuildAction {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Overwrite => "overwrite",
+            Self::Keep => "keep",
+        }
+    }
+}
+
+/// Error produced while rebuilding the task index.
+#[derive(Debug)]
+pub enum TaskIndexRebuildError {
+    RepositoryScan(crate::RepositoryScanError),
+    MissingTaskIndex,
+    ReadFile { path: PathBuf, source: io::Error },
+    WriteFile { path: PathBuf, source: io::Error },
+}
+
+impl fmt::Display for TaskIndexRebuildError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::RepositoryScan(error) => error.fmt(formatter),
+            Self::MissingTaskIndex => formatter.write_str("task index document was not found"),
+            Self::ReadFile { path, source } => {
+                write!(formatter, "failed to read {}: {source}", path.display())
+            }
+            Self::WriteFile { path, source } => {
+                write!(formatter, "failed to write {}: {source}", path.display())
+            }
+        }
+    }
+}
+
+impl std::error::Error for TaskIndexRebuildError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::RepositoryScan(error) => Some(error),
+            Self::MissingTaskIndex => None,
+            Self::ReadFile { source, .. } => Some(source),
+            Self::WriteFile { source, .. } => Some(source),
+        }
+    }
+}
+
+impl From<crate::RepositoryScanError> for TaskIndexRebuildError {
+    fn from(error: crate::RepositoryScanError) -> Self {
+        Self::RepositoryScan(error)
+    }
+}
+
+/// Rebuild docs/tasks/index.md from task frontmatter.
+pub fn rebuild_task_index(
+    root: impl AsRef<Path>,
+    options: TaskIndexRebuildOptions,
+) -> Result<TaskIndexRebuildPlan, TaskIndexRebuildError> {
+    let root = root.as_ref();
+    let documents = scan_repository(root)?;
+    let path = PathBuf::from("docs/tasks/index.md");
+    let content =
+        generate_task_index_markdown(&documents).ok_or(TaskIndexRebuildError::MissingTaskIndex)?;
+    let current =
+        fs::read_to_string(root.join(&path)).map_err(|source| TaskIndexRebuildError::ReadFile {
+            path: path.clone(),
+            source,
+        })?;
+    let action = if current == content {
+        TaskIndexRebuildAction::Keep
+    } else {
+        TaskIndexRebuildAction::Overwrite
+    };
+
+    if !options.dry_run && action == TaskIndexRebuildAction::Overwrite {
+        fs::write(root.join(&path), &content).map_err(|source| {
+            TaskIndexRebuildError::WriteFile {
+                path: path.clone(),
+                source,
+            }
+        })?;
+    }
+
+    Ok(TaskIndexRebuildPlan {
+        path,
+        action,
+        content,
+    })
+}
+
+pub(crate) fn has_task_index(documents: &[RepositoryDocument]) -> bool {
+    documents
+        .iter()
+        .any(|document| matches!(document.document.metadata, DocumentMetadata::TaskIndex(_)))
+}
+
+pub(crate) fn generate_task_index_markdown(documents: &[RepositoryDocument]) -> Option<String> {
+    let index = documents
+        .iter()
+        .find(|document| matches!(document.document.metadata, DocumentMetadata::TaskIndex(_)))?;
+
+    let mut planned = Vec::<(DocumentId, String)>::new();
+    let mut doing = Vec::<(DocumentId, String)>::new();
+    let mut blocked = Vec::<(DocumentId, String)>::new();
+    let mut done = Vec::<(DocumentId, String)>::new();
+
+    for document in documents {
+        let DocumentMetadata::Task(task) = &document.document.metadata else {
+            continue;
+        };
+        let item = (
+            task.common.id,
+            format!("- {} {}", task.common.id.get(), task.common.title),
+        );
+
+        match task.status {
+            TaskStatus::Planned => planned.push(item),
+            TaskStatus::Doing => doing.push(item),
+            TaskStatus::Blocked => blocked.push(item),
+            TaskStatus::Done | TaskStatus::Dropped => done.push(item),
+        }
+    }
+
+    let mut markdown = String::new();
+    markdown.push_str("---\n");
+    markdown.push_str(&index.document.frontmatter.raw);
+    if !index.document.frontmatter.raw.ends_with('\n') {
+        markdown.push('\n');
+    }
+    markdown.push_str("---\n\n");
+    markdown.push_str("This index is generated by `vdoc rebuild index`.\n\n");
+    push_task_index_section(&mut markdown, "Doing", doing);
+    push_task_index_section(&mut markdown, "Planned", planned);
+    push_task_index_section(&mut markdown, "Blocked", blocked);
+    push_task_index_section(&mut markdown, "Done", done);
+    Some(markdown)
+}
+
+fn push_task_index_section(
+    markdown: &mut String,
+    heading: &str,
+    mut items: Vec<(DocumentId, String)>,
+) {
+    markdown.push_str(&format!("## {heading}\n\n"));
+    if items.is_empty() {
+        markdown.push_str("No tasks.\n\n");
+    } else {
+        items.sort_by_key(|(id, _)| *id);
+        for (_, item) in items {
+            markdown.push_str(&item);
+            markdown.push('\n');
+        }
+        markdown.push('\n');
+    }
+}

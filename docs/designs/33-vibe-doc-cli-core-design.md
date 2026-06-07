@@ -38,7 +38,8 @@ This keeps the same behavior available to the future server and Web UI without r
 - Global ID allocation and filename generation.
 - Schema loading and built-in validation rules.
 - Init planning and write execution.
-- Future task mutation and index rebuild helpers.
+- Task index rebuild planning and write execution.
+- Future task lifecycle mutation helpers.
 
 `crates/vibe-doc-cli` contains:
 

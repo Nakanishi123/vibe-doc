@@ -7,6 +7,7 @@ mod metadata;
 mod new;
 mod parser;
 mod repository;
+mod task_index;
 mod validation;
 
 pub use allocation::{
@@ -34,6 +35,10 @@ pub use parser::{parse_markdown_document, parse_numbered_document, ParseError, P
 pub use repository::{
     expected_kind_for_path, expected_kind_for_relative_path, scan_repository, RepositoryDocument,
     RepositoryScanError,
+};
+pub use task_index::{
+    rebuild_task_index, TaskIndexRebuildAction, TaskIndexRebuildError, TaskIndexRebuildOptions,
+    TaskIndexRebuildPlan,
 };
 pub use validation::{
     check_repository, load_schema_set, validate_documents, validate_repository, SchemaLoadError,
