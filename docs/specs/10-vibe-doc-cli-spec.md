@@ -201,18 +201,25 @@ Recommended error codes:
 `vdoc start task <id>`:
 
 - sets `status: doing`
-- sets `started_at`
+- sets `started_at` to the local current date by default
 - rebuilds the task index
 - runs validation
+- supports `--date YYYY-MM-DD`
+- supports `--dry-run`
+- supports `--json`
 
 `vdoc complete task <id>`:
 
 - sets `status: done`
-- sets `completed_at`
+- sets `completed_at` to the local current date by default
 - updates `Result`
 - moves the task from `docs/tasks/active/` to `docs/tasks/done/`
 - rebuilds the task index
 - runs validation
+- supports `--date YYYY-MM-DD`
+- supports `--result`
+- supports `--dry-run`
+- supports `--json`
 
 ## Context and Guard
 

@@ -5,8 +5,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use vibe_doc_core::{
     AdrStatus, DesignStatus, DocumentMetadata, InitError, InitPlan, NewError, NewPlan, Priority,
-    RepositoryDocument, SpecStatus, TaskIndexRebuildError, TaskIndexRebuildPlan, TaskStatus,
-    TaskType, ValidationIssue, ValidationReport,
+    RepositoryDocument, SpecStatus, TaskIndexRebuildError, TaskIndexRebuildPlan,
+    TaskLifecycleError, TaskLifecyclePlan, TaskStatus, TaskType, ValidationIssue, ValidationReport,
 };
 
 pub(crate) fn print_init_text(plan: &InitPlan, dry_run: bool) {
@@ -137,6 +137,110 @@ pub(crate) fn print_rebuild_index_error_json(error: &TaskIndexRebuildError) {
                 "code": "REBUILD_INDEX_WRITE_FAILED",
                 "message": error.to_string(),
                 "path": display_path(path),
+            }
+        }),
+    };
+    eprintln!("{payload}");
+}
+
+pub(crate) fn print_task_lifecycle_text(command: &str, plan: &TaskLifecyclePlan, dry_run: bool) {
+    if dry_run {
+        println!("vdoc {command} dry-run:");
+    } else {
+        println!("vdoc {command} complete:");
+    }
+    for change in &plan.changes {
+        println!(
+            "- {} {}",
+            change.action.as_str(),
+            display_path(&change.path)
+        );
+    }
+}
+
+pub(crate) fn print_task_lifecycle_json(command: &str, plan: &TaskLifecyclePlan, dry_run: bool) {
+    let changes: Vec<_> = plan
+        .changes
+        .iter()
+        .map(|change| {
+            json!({
+                "path": display_path(&change.path),
+                "action": change.action.as_str(),
+            })
+        })
+        .collect();
+
+    println!(
+        "{}",
+        json!({
+            "command": command,
+            "dry_run": dry_run,
+            "task_id": plan.task_id.get(),
+            "changes": changes,
+        })
+    );
+}
+
+pub(crate) fn print_task_lifecycle_error_json(error: &TaskLifecycleError) {
+    let payload = match error {
+        TaskLifecycleError::TaskNotFound { id } => json!({
+            "error": {
+                "code": "TASK_LIFECYCLE_TASK_NOT_FOUND",
+                "message": error.to_string(),
+                "task_id": id.get(),
+            }
+        }),
+        TaskLifecycleError::InvalidTaskStatus {
+            id,
+            status,
+            expected,
+        } => json!({
+            "error": {
+                "code": "TASK_LIFECYCLE_INVALID_STATUS",
+                "message": error.to_string(),
+                "task_id": id.get(),
+                "status": task_status_as_str(*status),
+                "expected": expected,
+            }
+        }),
+        TaskLifecycleError::InvalidTaskLocation { path }
+        | TaskLifecycleError::DestinationExists { path }
+        | TaskLifecycleError::ReadFile { path, .. }
+        | TaskLifecycleError::CreateDir { path, .. }
+        | TaskLifecycleError::WriteFile { path, .. }
+        | TaskLifecycleError::DeleteFile { path, .. } => json!({
+            "error": {
+                "code": "TASK_LIFECYCLE_IO_FAILED",
+                "message": error.to_string(),
+                "path": display_path(path),
+            }
+        }),
+        TaskLifecycleError::RepositoryScan(_) => json!({
+            "error": {
+                "code": "TASK_LIFECYCLE_SCAN_FAILED",
+                "message": error.to_string(),
+            }
+        }),
+        TaskLifecycleError::FrontmatterParse(_)
+        | TaskLifecycleError::FrontmatterNotMapping
+        | TaskLifecycleError::FrontmatterSerialize(_)
+        | TaskLifecycleError::Parse(_) => json!({
+            "error": {
+                "code": "TASK_LIFECYCLE_PARSE_FAILED",
+                "message": error.to_string(),
+            }
+        }),
+        TaskLifecycleError::Validation(issues) => json!({
+            "error": {
+                "code": "TASK_LIFECYCLE_VALIDATION_FAILED",
+                "message": error.to_string(),
+                "issues": issues.iter().map(validation_issue_json).collect::<Vec<_>>(),
+            }
+        }),
+        TaskLifecycleError::ValidationRun(_) => json!({
+            "error": {
+                "code": "TASK_LIFECYCLE_VALIDATION_RUN_FAILED",
+                "message": error.to_string(),
             }
         }),
     };

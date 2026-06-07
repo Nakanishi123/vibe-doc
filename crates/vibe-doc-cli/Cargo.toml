@@ -8,6 +8,7 @@ name = "vdoc"
 path = "src/main.rs"
 
 [dependencies]
+chrono.workspace = true
 clap = { version = "4.6.1", features = ["derive"] }
 serde_json = "1.0.150"
 vibe-doc-core.workspace = true

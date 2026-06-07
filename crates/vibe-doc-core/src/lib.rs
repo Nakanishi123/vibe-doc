@@ -3,6 +3,7 @@
 mod allocation;
 mod document;
 mod init;
+mod lifecycle;
 mod metadata;
 mod new;
 mod parser;
@@ -21,6 +22,10 @@ pub use document::{
 };
 pub use init::{
     init_repository, InitChange, InitChangeAction, InitChangeKind, InitError, InitOptions, InitPlan,
+};
+pub use lifecycle::{
+    complete_task, start_task, CompleteTaskOptions, TaskLifecycleAction, TaskLifecycleChange,
+    TaskLifecycleError, TaskLifecycleOptions, TaskLifecyclePlan,
 };
 pub use metadata::{
     AdrMetadata, AdrStatus, CommonMetadata, DesignMetadata, DesignStatus, DocumentId, DocumentKind,

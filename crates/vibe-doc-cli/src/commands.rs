@@ -1,6 +1,7 @@
 use crate::args::{
-    Cli, Command, InitCommandOptions, ListCommand, NewCommand, NewCommandOptions, NewKindCommand,
-    RebuildCommand, RebuildIndexCommand, RebuildTargetCommand, ShowCommand, ShowMode,
+    Cli, Command, CompleteCommand, CompleteTargetCommand, InitCommandOptions, ListCommand,
+    NewCommand, NewCommandOptions, NewKindCommand, RebuildCommand, RebuildIndexCommand,
+    RebuildTargetCommand, ShowCommand, ShowMode, StartCommand, StartTargetCommand,
     ValidationCommand,
 };
 use crate::error::CliError;
@@ -8,8 +9,10 @@ use crate::format::{
     display_path, document_summary_json, metadata_kind, print_init_error_json, print_init_json,
     print_init_text, print_new_error_json, print_new_json, print_new_text,
     print_rebuild_index_error_json, print_rebuild_index_json, print_rebuild_index_text,
-    print_validation_json, print_validation_text, relative_path, show_json,
+    print_task_lifecycle_json, print_task_lifecycle_text, print_validation_json,
+    print_validation_text, relative_path, show_json,
 };
+use chrono::{Local, NaiveDate};
 use clap::CommandFactory;
 use serde_json::json;
 use std::env;
@@ -17,8 +20,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use vibe_doc_core::{
     check_repository, init_repository, new_adr, new_design, new_spec, new_task, rebuild_task_index,
-    scan_repository, validate_repository, DocumentId, DocumentMetadata, InitOptions, NewAdrOptions,
-    NewTaskOptions, RepositoryDocument, TaskIndexRebuildOptions, ValidationReport,
+    scan_repository, start_task, validate_repository, CompleteTaskOptions, DocumentId,
+    DocumentMetadata, InitOptions, NewAdrOptions, NewTaskOptions, RepositoryDocument,
+    TaskIndexRebuildOptions, TaskLifecycleOptions, ValidationReport,
 };
 
 pub(crate) fn run(cli: Cli) -> Result<(), CliError> {
@@ -34,10 +38,69 @@ pub(crate) fn run(cli: Cli) -> Result<(), CliError> {
         Some(Command::Check(command)) => {
             run_validation("check", command, |root| check_repository(root))
         }
+        Some(Command::Start(command)) => run_start(command),
+        Some(Command::Complete(command)) => run_complete(command),
         None => {
             Cli::command().print_help().map_err(CliError::WriteHelp)?;
             println!();
             Ok(())
+        }
+    }
+}
+
+fn run_start(command: StartCommand) -> Result<(), CliError> {
+    match command.target {
+        StartTargetCommand::Task(command) => {
+            let root = env::current_dir().map_err(CliError::CurrentDir)?;
+            let id = document_id_from_u64(command.id)?;
+            let options = TaskLifecycleOptions {
+                dry_run: command.dry_run,
+                date: lifecycle_date(command.date)?,
+            };
+            match start_task(&root, id, options) {
+                Ok(plan) => {
+                    if command.json {
+                        print_task_lifecycle_json("start task", &plan, command.dry_run);
+                    } else {
+                        print_task_lifecycle_text("start task", &plan, command.dry_run);
+                    }
+                    Ok(())
+                }
+                Err(error) => Err(CliError::TaskLifecycle {
+                    json: command.json,
+                    error,
+                }),
+            }
+        }
+    }
+}
+
+fn run_complete(command: CompleteCommand) -> Result<(), CliError> {
+    match command.target {
+        CompleteTargetCommand::Task(command) => {
+            let root = env::current_dir().map_err(CliError::CurrentDir)?;
+            let id = document_id_from_u64(command.id)?;
+            let options = CompleteTaskOptions {
+                lifecycle: TaskLifecycleOptions {
+                    dry_run: command.dry_run,
+                    date: lifecycle_date(command.date)?,
+                },
+                result: command.result,
+            };
+            match vibe_doc_core::complete_task(&root, id, options) {
+                Ok(plan) => {
+                    if command.json {
+                        print_task_lifecycle_json("complete task", &plan, command.dry_run);
+                    } else {
+                        print_task_lifecycle_text("complete task", &plan, command.dry_run);
+                    }
+                    Ok(())
+                }
+                Err(error) => Err(CliError::TaskLifecycle {
+                    json: command.json,
+                    error,
+                }),
+            }
         }
     }
 }
@@ -435,4 +498,40 @@ fn normalize_filter_path(root: &Path, path: &Path) -> PathBuf {
 fn document_id_from_u64(value: u64) -> Result<DocumentId, CliError> {
     DocumentId::new(value)
         .ok_or_else(|| CliError::Usage(format!("document ID must be positive: {value}")))
+}
+
+fn lifecycle_date(date: Option<String>) -> Result<String, CliError> {
+    let Some(date) = date else {
+        return Ok(Local::now().date_naive().format("%Y-%m-%d").to_string());
+    };
+    parse_lifecycle_date(&date)?;
+    Ok(date)
+}
+
+fn parse_lifecycle_date(date: &str) -> Result<NaiveDate, CliError> {
+    let parsed = NaiveDate::parse_from_str(date, "%Y-%m-%d")
+        .map_err(|_| CliError::Usage(format!("invalid date `{date}`; expected YYYY-MM-DD")))?;
+    if parsed.format("%Y-%m-%d").to_string() != date {
+        return Err(CliError::Usage(format!(
+            "invalid date `{date}`; expected YYYY-MM-DD"
+        )));
+    }
+    Ok(parsed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_lifecycle_date;
+
+    #[test]
+    fn accepts_lifecycle_dates_in_iso_format() {
+        assert!(parse_lifecycle_date("2026-06-07").is_ok());
+    }
+
+    #[test]
+    fn rejects_invalid_lifecycle_dates() {
+        assert!(parse_lifecycle_date("2026-6-7").is_err());
+        assert!(parse_lifecycle_date("2026-02-30").is_err());
+        assert!(parse_lifecycle_date("yesterday").is_err());
+    }
 }

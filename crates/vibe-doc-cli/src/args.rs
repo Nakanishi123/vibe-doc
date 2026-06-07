@@ -20,6 +20,8 @@ pub(crate) enum Command {
     Show(ShowCommand),
     Validate(ValidationCommand),
     Check(ValidationCommand),
+    Start(StartCommand),
+    Complete(CompleteCommand),
 }
 
 #[derive(Debug, Parser)]
@@ -141,6 +143,52 @@ pub(crate) struct ValidationCommand {
     pub(crate) json: bool,
     #[arg(value_name = "PATH")]
     pub(crate) paths: Vec<PathBuf>,
+}
+
+#[derive(Debug, Parser)]
+pub(crate) struct StartCommand {
+    #[command(subcommand)]
+    pub(crate) target: StartTargetCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub(crate) enum StartTargetCommand {
+    Task(StartTaskCommand),
+}
+
+#[derive(Debug, Parser)]
+pub(crate) struct StartTaskCommand {
+    pub(crate) id: u64,
+    #[arg(long)]
+    pub(crate) dry_run: bool,
+    #[arg(long)]
+    pub(crate) json: bool,
+    #[arg(long)]
+    pub(crate) date: Option<String>,
+}
+
+#[derive(Debug, Parser)]
+pub(crate) struct CompleteCommand {
+    #[command(subcommand)]
+    pub(crate) target: CompleteTargetCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub(crate) enum CompleteTargetCommand {
+    Task(CompleteTaskCommand),
+}
+
+#[derive(Debug, Parser)]
+pub(crate) struct CompleteTaskCommand {
+    pub(crate) id: u64,
+    #[arg(long)]
+    pub(crate) dry_run: bool,
+    #[arg(long)]
+    pub(crate) json: bool,
+    #[arg(long)]
+    pub(crate) date: Option<String>,
+    #[arg(long)]
+    pub(crate) result: Option<String>,
 }
 
 impl ShowCommand {
