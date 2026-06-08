@@ -18,3 +18,8 @@ run = "pnpm web:typecheck"
 description = "Build vdoc and install it to ~/.local/bin"
 depends = ["web:build"]
 run = "cargo build --release -p vibe-doc-cli && install -Dm755 target/release/vdoc \"$HOME/.local/bin/vdoc\""
+
+[tasks."vdoc:server"]
+description = "Rebuild and run vdoc server"
+depends = ["vdoc:install"]
+run = "vdoc server"
