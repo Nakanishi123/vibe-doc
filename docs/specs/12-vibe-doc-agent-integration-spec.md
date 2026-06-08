@@ -26,7 +26,7 @@ The Codex Runner flow:
 4. Generate a prompt from task context.
 5. Show the prompt to the user.
 6. Require user approval.
-7. Run Codex in a controlled working directory.
+7. Run Codex in an isolated Git worktree.
 8. Save execution logs.
 9. List changed files.
 10. Show Git diff.
@@ -40,7 +40,7 @@ Codex execution must:
 - use task IDs as the entry point
 - fix the repository root
 - avoid arbitrary Web UI command input
-- recommend isolated Git worktrees
+- use isolated Git worktrees for managed execution
 - save execution logs
 - display changed files
 - display Git diff
@@ -55,7 +55,7 @@ Codex execution must:
 4. vibe-doc collects task context.
 5. vibe-doc generates a Codex prompt.
 6. The user approves the prompt.
-7. vibe-doc runs a Codex job.
+7. vibe-doc runs a Codex job in an isolated Git worktree.
 8. vibe-doc streams logs.
 9. vibe-doc displays a diff.
 10. The user accepts or rejects changes.

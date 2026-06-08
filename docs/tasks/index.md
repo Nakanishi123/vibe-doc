@@ -12,7 +12,12 @@ No tasks.
 
 ## Planned
 
-- 32 Prepare controlled agent integration workflow
+- 37 Implement agent run storage under git vdoc runs
+- 38 Implement agent worktree lifecycle
+- 39 Implement agent run preparation and prompt approval APIs
+- 40 Implement agent execution and terminal log streaming
+- 41 Build agent run review and acceptance UI
+- 42 Replace manual Web UI Markdown rendering with a library
 
 ## Blocked
 
@@ -37,4 +42,5 @@ No tasks.
 - 29 Implement validation and task mutation APIs
 - 30 Build read-only Web UI document views
 - 31 Build read-only task and ADR views
+- 32 Prepare controlled agent integration workflow
 - 36 Implement vdoc server command and SPA serving
