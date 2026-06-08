@@ -75,8 +75,9 @@ export interface AdrSummary extends DocumentSummary {
   kind: "adr";
   status: AdrStatus;
   date?: string;
-  supersedes?: number[];
-  superseded_by?: number[];
+  related_designs: number[];
+  supersedes: number[];
+  superseded_by?: number;
 }
 
 export interface TaskSummary extends DocumentSummary {
@@ -121,6 +122,7 @@ export interface ValidationIssue {
 }
 
 export interface ValidationResponse extends ValidationSummary {
+  incomplete: boolean;
   issues: ValidationIssue[];
 }
 

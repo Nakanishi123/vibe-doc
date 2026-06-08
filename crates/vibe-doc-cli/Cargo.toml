@@ -11,4 +11,6 @@ path = "src/main.rs"
 chrono.workspace = true
 clap = { version = "4.6.1", features = ["derive"] }
 serde_json = "1.0.150"
+tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread"] }
 vibe-doc-core.workspace = true
+vibe-doc-server = { path = "../vibe-doc-server" }

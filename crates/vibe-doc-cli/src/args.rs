@@ -24,6 +24,7 @@ pub(crate) enum Command {
     Complete(CompleteCommand),
     Context(ContextCommand),
     Guard(GuardCommand),
+    Server(ServerCommand),
 }
 
 #[derive(Debug, Parser)]
@@ -225,6 +226,16 @@ pub(crate) enum GuardTargetCommand {
 #[derive(Debug, Parser)]
 pub(crate) struct GuardTaskCommand {
     pub(crate) id: u64,
+    #[arg(long)]
+    pub(crate) json: bool,
+}
+
+#[derive(Debug, Parser)]
+pub(crate) struct ServerCommand {
+    #[arg(long, default_value = "127.0.0.1")]
+    pub(crate) host: String,
+    #[arg(long, default_value = "3000")]
+    pub(crate) port: String,
     #[arg(long)]
     pub(crate) json: bool,
 }

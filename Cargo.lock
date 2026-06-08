@@ -772,7 +772,9 @@ dependencies = [
  "chrono",
  "clap",
  "serde_json",
+ "tokio",
  "vibe-doc-core",
+ "vibe-doc-server",
 ]
 
 [[package]]

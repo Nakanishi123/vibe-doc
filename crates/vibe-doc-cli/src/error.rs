@@ -10,6 +10,8 @@ use vibe_doc_core::{
 pub(crate) enum CliError {
     CurrentDir(std::io::Error),
     WriteHelp(std::io::Error),
+    WriteOutput(std::io::Error),
+    Server(std::io::Error),
     ReadFile {
         path: PathBuf,
         source: std::io::Error,
@@ -47,6 +49,8 @@ impl std::fmt::Display for CliError {
                 write!(formatter, "failed to get current directory: {error}")
             }
             Self::WriteHelp(error) => write!(formatter, "failed to write help: {error}"),
+            Self::WriteOutput(error) => write!(formatter, "failed to write output: {error}"),
+            Self::Server(error) => write!(formatter, "failed to run server: {error}"),
             Self::ReadFile { path, source } => {
                 write!(formatter, "failed to read {}: {source}", path.display())
             }

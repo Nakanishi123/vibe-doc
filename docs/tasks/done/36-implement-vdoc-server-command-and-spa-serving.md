@@ -3,7 +3,7 @@ id: 36
 title: Implement vdoc server command and SPA serving
 kind: task
 type: feature
-status: planned
+status: done
 priority: medium
 specs:
 - 10
@@ -15,6 +15,8 @@ depends_on:
 - 27
 - 28
 - 29
+started_at: 2026-06-08
+completed_at: 2026-06-08
 ---
 
 ## Goal
@@ -47,24 +49,24 @@ exercise the server APIs from a browser or HTTP client.
 
 ## Checklist
 
-- [ ] CLI args parse `vdoc server --host --port --json`.
-- [ ] Server binds to `127.0.0.1` by default.
-- [ ] API routes are reachable through the running server.
-- [ ] `apps/web/dist` assets are embedded when present at compile time.
-- [ ] Embedded `index.html`, JavaScript, CSS, and static assets are served with
+- [x] CLI args parse `vdoc server --host --port --json`.
+- [x] Server binds to `127.0.0.1` by default.
+- [x] API routes are reachable through the running server.
+- [x] `apps/web/dist` assets are embedded when present at compile time.
+- [x] Embedded `index.html`, JavaScript, CSS, and static assets are served with
       appropriate content types.
-- [ ] SPA browser routes fall back to embedded `index.html`.
-- [ ] Missing embedded SPA assets produce a useful local-development response.
-- [ ] Startup output includes the listening URL.
+- [x] SPA browser routes fall back to embedded `index.html`.
+- [x] Missing embedded SPA assets produce a useful local-development response.
+- [x] Startup output includes the listening URL.
 
 ## Done Criteria
 
-- [ ] CLI/server tests cover successful startup wiring where practical.
-- [ ] Invalid host or port inputs fail with stable diagnostics.
-- [ ] Embedded asset lookup rejects path traversal and API route fallthrough.
-- [ ] Rust-only builds succeed when `apps/web/dist` is absent.
-- [ ] Related specs remain accurate.
+- [x] CLI/server tests cover successful startup wiring where practical.
+- [x] Invalid host or port inputs fail with stable diagnostics.
+- [x] Embedded asset lookup rejects path traversal and API route fallthrough.
+- [x] Rust-only builds succeed when `apps/web/dist` is absent.
+- [x] Related specs remain accurate.
 
 ## Result
 
-Not implemented.
+Implemented vdoc server with host/port/json startup output, Axum API serving, compile-time optional embedded SPA assets, SPA browser-route fallback, API fallthrough protection, and server/CLI regression coverage.

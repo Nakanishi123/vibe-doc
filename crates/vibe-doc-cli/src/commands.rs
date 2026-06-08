@@ -2,7 +2,7 @@ use crate::args::{
     Cli, Command, CompleteCommand, CompleteTargetCommand, ContextCommand, ContextTargetCommand,
     GuardCommand, GuardTargetCommand, InitCommandOptions, ListCommand, NewCommand,
     NewCommandOptions, NewKindCommand, RebuildCommand, RebuildIndexCommand, RebuildTargetCommand,
-    ShowCommand, ShowMode, StartCommand, StartTargetCommand, ValidationCommand,
+    ServerCommand, ShowCommand, ShowMode, StartCommand, StartTargetCommand, ValidationCommand,
 };
 use crate::error::CliError;
 use crate::format::{
@@ -18,6 +18,8 @@ use clap::CommandFactory;
 use serde_json::json;
 use std::env;
 use std::fs;
+use std::io::Write;
+use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
 use vibe_doc_core::{
     check_repository, init_repository, new_adr, new_design, new_spec, new_task, rebuild_task_index,
@@ -26,7 +28,7 @@ use vibe_doc_core::{
     TaskIndexRebuildOptions, TaskLifecycleOptions, ValidationReport,
 };
 
-pub(crate) fn run(cli: Cli) -> Result<(), CliError> {
+pub(crate) async fn run(cli: Cli) -> Result<(), CliError> {
     match cli.command {
         Some(Command::Init(options)) => run_init(options),
         Some(Command::New(command)) => run_new(command),
@@ -43,12 +45,44 @@ pub(crate) fn run(cli: Cli) -> Result<(), CliError> {
         Some(Command::Complete(command)) => run_complete(command),
         Some(Command::Context(command)) => run_context(command),
         Some(Command::Guard(command)) => run_guard(command),
+        Some(Command::Server(command)) => run_server(command).await,
         None => {
             Cli::command().print_help().map_err(CliError::WriteHelp)?;
             println!();
             Ok(())
         }
     }
+}
+
+async fn run_server(command: ServerCommand) -> Result<(), CliError> {
+    let root = env::current_dir().map_err(CliError::CurrentDir)?;
+    let host = parse_host(&command.host)?;
+    let port = parse_port(&command.port)?;
+    let addr = SocketAddr::new(host, port);
+    let server = vibe_doc_server::bind(&root, addr)
+        .await
+        .map_err(CliError::Server)?;
+    let local_addr = server.local_addr();
+    let url = format!("http://{local_addr}");
+
+    if command.json {
+        println!(
+            "{}",
+            json!({
+                "command": "server",
+                "host": local_addr.ip().to_string(),
+                "port": local_addr.port(),
+                "url": url,
+                "repository_root": display_path(&root),
+            })
+        );
+    } else {
+        println!("vdoc server listening on {url}");
+        println!("repository: {}", display_path(&root));
+    }
+    std::io::stdout().flush().map_err(CliError::WriteOutput)?;
+
+    server.serve().await.map_err(CliError::Server)
 }
 
 fn run_context(command: ContextCommand) -> Result<(), CliError> {
@@ -544,6 +578,18 @@ fn normalize_filter_path(root: &Path, path: &Path) -> PathBuf {
 fn document_id_from_u64(value: u64) -> Result<DocumentId, CliError> {
     DocumentId::new(value)
         .ok_or_else(|| CliError::Usage(format!("document ID must be positive: {value}")))
+}
+
+fn parse_host(value: &str) -> Result<IpAddr, CliError> {
+    value
+        .parse()
+        .map_err(|_| CliError::Usage(format!("invalid host `{value}`; expected an IP address")))
+}
+
+fn parse_port(value: &str) -> Result<u16, CliError> {
+    value
+        .parse()
+        .map_err(|_| CliError::Usage(format!("invalid port `{value}`; expected 0-65535")))
 }
 
 fn lifecycle_date(date: Option<String>) -> Result<String, CliError> {

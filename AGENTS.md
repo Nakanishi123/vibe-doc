@@ -12,6 +12,8 @@ This repository is managed with `vdoc`. Treat Markdown as the source of truth.
   reinitialization.
 - `AGENTS.md` and README files do not use frontmatter.
 - Keep references ID-based, not path-based.
+- Pass bare numeric IDs to `vdoc` commands. For example, use `vdoc show 36`
+  and `vdoc context task 36`, not `task-36`.
 - Keep operational docs English-first. Frontmatter keys and enum values must
   remain stable English identifiers.
 

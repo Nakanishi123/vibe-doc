@@ -9,8 +9,9 @@ use args::Cli;
 use clap::Parser;
 use std::process::ExitCode;
 
-fn main() -> ExitCode {
-    match commands::run(Cli::parse()) {
+#[tokio::main]
+async fn main() -> ExitCode {
+    match commands::run(Cli::parse()).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(error::CliError::ReportedIssues) => ExitCode::from(1),
         Err(error) => {

@@ -1,8 +1,9 @@
 //! API server and SPA host crate for vibe-doc.
 
 use axum::{
+    body::Body,
     extract::{Path, State},
-    http::StatusCode,
+    http::{header, Method, StatusCode, Uri},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
@@ -12,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
+    net::SocketAddr,
     path::{Path as FsPath, PathBuf},
     sync::Arc,
 };
@@ -27,6 +29,13 @@ use vibe_doc_core::{
 
 /// Stable crate identifier used by workspace smoke tests.
 pub const CRATE_NAME: &str = "vibe-doc-server";
+
+struct EmbeddedAsset {
+    path: &'static str,
+    bytes: &'static [u8],
+}
+
+include!(concat!(env!("OUT_DIR"), "/embedded_assets.rs"));
 
 /// Shared server state.
 #[derive(Debug, Clone)]
@@ -49,6 +58,55 @@ impl ServerState {
 
 /// Build the read-only API router for a vibe-doc repository.
 pub fn api_router(repository_root: impl Into<PathBuf>) -> Router {
+    api_routes().with_state(ServerState::new(repository_root))
+}
+
+/// Build the full application router with API routes and embedded SPA serving.
+pub fn app_router(repository_root: impl Into<PathBuf>) -> Router {
+    api_routes()
+        .fallback(spa_fallback)
+        .with_state(ServerState::new(repository_root))
+}
+
+/// A bound HTTP server ready to report its final listen address and run.
+pub struct BoundServer {
+    listener: tokio::net::TcpListener,
+    router: Router,
+    local_addr: SocketAddr,
+}
+
+impl BoundServer {
+    /// Return the socket address selected by the OS.
+    pub fn local_addr(&self) -> SocketAddr {
+        self.local_addr
+    }
+
+    /// Run this server until it is stopped.
+    pub async fn serve(self) -> std::io::Result<()> {
+        axum::serve(self.listener, self.router).await
+    }
+}
+
+/// Bind the API and embedded SPA router without starting request handling.
+pub async fn bind(
+    repository_root: impl Into<PathBuf>,
+    addr: SocketAddr,
+) -> std::io::Result<BoundServer> {
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    let local_addr = listener.local_addr()?;
+    Ok(BoundServer {
+        listener,
+        router: app_router(repository_root),
+        local_addr,
+    })
+}
+
+/// Serve the API and embedded SPA on an already parsed socket address.
+pub async fn serve(repository_root: impl Into<PathBuf>, addr: SocketAddr) -> std::io::Result<()> {
+    bind(repository_root, addr).await?.serve().await
+}
+
+fn api_routes() -> Router<ServerState> {
     Router::new()
         .route("/api/health", get(health))
         .route("/api/documents", get(list_documents))
@@ -66,7 +124,122 @@ pub fn api_router(repository_root: impl Into<PathBuf>) -> Router {
             "/api/tasks/index/rebuild",
             post(rebuild_task_index_endpoint),
         )
-        .with_state(ServerState::new(repository_root))
+}
+
+async fn spa_fallback(method: Method, uri: Uri) -> Response {
+    let path = uri.path();
+
+    if path == "/api" || path.starts_with("/api/") {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "code": "API_ROUTE_NOT_FOUND",
+                    "message": format!("API route `{path}` was not found"),
+                }
+            })),
+        )
+            .into_response();
+    }
+
+    if method != Method::GET && method != Method::HEAD {
+        return StatusCode::METHOD_NOT_ALLOWED.into_response();
+    }
+
+    if !is_safe_asset_path(path) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "code": "INVALID_SPA_ASSET_PATH",
+                    "message": "SPA asset path must stay within embedded assets",
+                }
+            })),
+        )
+            .into_response();
+    }
+
+    if EMBEDDED_ASSETS.is_empty() {
+        return missing_spa_response();
+    }
+
+    let requested = path.trim_start_matches('/');
+    let asset_path = if requested.is_empty() {
+        "index.html"
+    } else {
+        requested
+    };
+
+    if let Some(asset) = embedded_asset(asset_path) {
+        return asset_response(asset, method == Method::HEAD);
+    }
+
+    if path_has_extension(asset_path) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+
+    match embedded_asset("index.html") {
+        Some(asset) => asset_response(asset, method == Method::HEAD),
+        None => missing_spa_response(),
+    }
+}
+
+fn embedded_asset(path: &str) -> Option<&'static EmbeddedAsset> {
+    EMBEDDED_ASSETS.iter().find(|asset| asset.path == path)
+}
+
+fn asset_response(asset: &EmbeddedAsset, head_only: bool) -> Response {
+    let body = if head_only {
+        Body::empty()
+    } else {
+        Body::from(asset.bytes)
+    };
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, content_type(asset.path))
+        .body(body)
+        .expect("static asset response should be valid")
+}
+
+fn missing_spa_response() -> Response {
+    let message = "vdoc server is running, but embedded Web UI assets were not found. Run the Web UI build so apps/web/dist exists before compiling this binary, or use the API routes under /api.";
+    Response::builder()
+        .status(StatusCode::SERVICE_UNAVAILABLE)
+        .header(header::CONTENT_TYPE, "text/plain; charset=utf-8")
+        .body(Body::from(message))
+        .expect("missing SPA response should be valid")
+}
+
+fn is_safe_asset_path(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    !path.contains('\\')
+        && !path.contains("..")
+        && !lower.contains("%2e")
+        && !lower.contains("%5c")
+        && path.starts_with('/')
+}
+
+fn path_has_extension(path: &str) -> bool {
+    path.rsplit('/')
+        .next()
+        .is_some_and(|name| name.contains('.'))
+}
+
+fn content_type(path: &str) -> &'static str {
+    match path.rsplit('.').next().unwrap_or_default() {
+        "html" => "text/html; charset=utf-8",
+        "js" => "text/javascript; charset=utf-8",
+        "css" => "text/css; charset=utf-8",
+        "json" => "application/json; charset=utf-8",
+        "svg" => "image/svg+xml",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "webp" => "image/webp",
+        "ico" => "image/x-icon",
+        "wasm" => "application/wasm",
+        "txt" => "text/plain; charset=utf-8",
+        _ => "application/octet-stream",
+    }
 }
 
 async fn health(State(state): State<ServerState>) -> Result<Json<HealthResponse>, ApiFailure> {
@@ -1003,7 +1176,7 @@ fn task_lifecycle_api_error(error: TaskLifecycleError) -> (StatusCode, ApiError)
             ApiError {
                 code: "TASK_LIFECYCLE_IO_FAILED",
                 message: error.to_string(),
-                path: Some(display_path(&path)),
+                path: Some(display_path(path)),
                 document_id: None,
             },
         ),
@@ -1075,7 +1248,7 @@ fn rebuild_index_api_error(error: TaskIndexRebuildError) -> (StatusCode, ApiErro
             ApiError {
                 code: "REBUILD_INDEX_IO_FAILED",
                 message: error.to_string(),
-                path: Some(display_path(&path)),
+                path: Some(display_path(path)),
                 document_id: None,
             },
         ),
@@ -1109,7 +1282,7 @@ mod tests {
     use super::*;
     use axum::{
         body::Body,
-        http::{Method, Request, StatusCode},
+        http::{HeaderMap, Method, Request, StatusCode},
     };
     use http_body_util::BodyExt;
     use std::{
@@ -1317,6 +1490,65 @@ mod tests {
         assert!(index.contains("- 2 API"));
     }
 
+    #[tokio::test]
+    async fn app_router_serves_embedded_spa_assets_and_browser_routes() {
+        let repo = TestRepo::new("spa");
+        repo.seed();
+
+        let index = request(app_router(repo.path()), "/").await;
+        if EMBEDDED_ASSETS.is_empty() {
+            assert_eq!(index.status, StatusCode::SERVICE_UNAVAILABLE);
+            assert!(String::from_utf8_lossy(&index.body).contains("embedded Web UI assets"));
+            return;
+        }
+
+        assert_eq!(index.status, StatusCode::OK);
+        assert_eq!(
+            index
+                .headers
+                .get("content-type")
+                .and_then(|value| value.to_str().ok()),
+            Some("text/html; charset=utf-8")
+        );
+        let body = String::from_utf8_lossy(&index.body);
+        assert!(body.contains("<div id=\"root\"></div>"));
+
+        let script_path = EMBEDDED_ASSETS
+            .iter()
+            .find(|asset| asset.path.ends_with(".js"))
+            .map(|asset| format!("/{}", asset.path))
+            .expect("test fixture should include a JavaScript asset");
+        let script = request(app_router(repo.path()), &script_path).await;
+        assert_eq!(script.status, StatusCode::OK);
+        assert_eq!(
+            script
+                .headers
+                .get("content-type")
+                .and_then(|value| value.to_str().ok()),
+            Some("text/javascript; charset=utf-8")
+        );
+
+        let browser_route = request(app_router(repo.path()), "/tasks/28").await;
+        assert_eq!(browser_route.status, StatusCode::OK);
+        assert!(String::from_utf8_lossy(&browser_route.body).contains("<div id=\"root\"></div>"));
+    }
+
+    #[tokio::test]
+    async fn app_router_does_not_serve_spa_for_api_fallthrough_or_traversal() {
+        let repo = TestRepo::new("spa-errors");
+        repo.seed();
+
+        let api_missing = request(app_router(repo.path()), "/api/not-found").await;
+        assert_eq!(api_missing.status, StatusCode::NOT_FOUND);
+        let api_error: Value = serde_json::from_slice(&api_missing.body).unwrap();
+        assert_eq!(api_error["error"]["code"], "API_ROUTE_NOT_FOUND");
+
+        let traversal = request(app_router(repo.path()), "/%2E%2E/index.html").await;
+        assert_eq!(traversal.status, StatusCode::BAD_REQUEST);
+        let traversal_error: Value = serde_json::from_slice(&traversal.body).unwrap();
+        assert_eq!(traversal_error["error"]["code"], "INVALID_SPA_ASSET_PATH");
+    }
+
     async fn request_json(router: Router, uri: &str) -> TestResponse {
         let response = request(router, uri).await;
         let body = serde_json::from_slice(&response.body).unwrap();
@@ -1357,9 +1589,11 @@ mod tests {
             .await
             .unwrap();
         let status = response.status();
+        let headers = response.headers().clone();
         let body = response.into_body().collect().await.unwrap().to_bytes();
         RawTestResponse {
             status,
+            headers,
             body: body.to_vec(),
         }
     }
@@ -1371,6 +1605,7 @@ mod tests {
 
     struct RawTestResponse {
         status: StatusCode,
+        headers: HeaderMap,
         body: Vec<u8>,
     }
 
