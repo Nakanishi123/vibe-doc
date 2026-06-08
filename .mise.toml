@@ -12,3 +12,7 @@ run = "pnpm web:build"
 [tasks."web:typecheck"]
 description = "Typecheck the Web UI"
 run = "pnpm web:typecheck"
+
+[tasks."vdoc:install"]
+description = "Build vdoc and install it to ~/.local/bin"
+run = "cargo build --release -p vibe-doc-cli && install -Dm755 target/release/vdoc \"$HOME/.local/bin/vdoc\""

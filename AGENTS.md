@@ -1,47 +1,32 @@
 # Agent Instructions
 
-This repository is managed as a vibe-doc project before the real `vdoc` CLI exists.
+This repository is managed with `vdoc`. Treat Markdown as the source of truth.
 
-## Operating Rules
+## Rules
 
-- Treat repository Markdown as the source of truth.
-- Do not run `vdoc` commands until the CLI is implemented.
-- Maintain vibe-doc frontmatter manually for specs, designs, ADRs, tasks, and the task index.
+- Use `vdoc` for supported document discovery, creation, validation, task
+  lifecycle, task index rebuild, and task context workflows.
+- Use `--dry-run` before mutation commands when the planned changes are not
+  obvious.
+- Do not run `vdoc init --force` unless the user explicitly asks for repository
+  reinitialization.
 - `AGENTS.md` and README files do not use frontmatter.
-- Assign new document IDs by scanning numbered vibe-doc document frontmatter and using the next global positive integer.
-- Keep document references ID-based, not path-based.
-- Keep operational documentation English-first. Frontmatter keys and enum values must remain stable English identifiers.
+- Keep references ID-based, not path-based.
+- Keep operational docs English-first. Frontmatter keys and enum values must
+  remain stable English identifiers.
 
-## Managed Documents
+## Common Commands
 
-Repository documentation files are:
+- Inspect: `vdoc list <specs|designs|adr|tasks>`, `vdoc show <id>`.
+- Validate: `vdoc validate`, `vdoc check`.
+- Tasks: `vdoc guard task <id>`, `vdoc context task <id>`,
+  `vdoc start task <id>`, `vdoc complete task <id> --result "<summary>"`.
+- Index: `vdoc rebuild index`.
 
-- `docs/README.md`
-- `docs/specs/README.md`
-- `docs/specs/*.md`
-- `docs/designs/README.md`
-- `docs/designs/*.md`
-- `docs/adr/README.md`
-- `docs/adr/*.md`
-- `docs/tasks/README.md`
-- `docs/tasks/index.md`
-- `docs/tasks/active/*.md`
-- `docs/tasks/done/*.md`
+## Manual Edits
 
-## Manual Task Lifecycle
-
-- Create new tasks in `docs/tasks/active/`.
-- Use task statuses `planned`, `doing`, `blocked`, `done`, or `dropped`.
-- Move completed or dropped tasks to `docs/tasks/done/`.
-- Update `docs/tasks/index.md` by hand until `vdoc rebuild index` exists.
-- Record implementation results in the task body, not in frontmatter.
-
-## Validation Expectations
-
-Before finishing documentation work, check that:
-
-- IDs are unique positive integers.
-- `kind` matches the file location.
-- ADR and task statuses use allowed values.
-- Task references point to existing document IDs.
-- The task index reflects current active and done tasks.
+Manual edits are still expected for existing document prose, README and
+`AGENTS.md` changes, blocked or dropped tasks, reference rewrites, and ADR/spec
+supersession work. After manual edits to numbered docs, run `vdoc rebuild index`
+if task frontmatter or placement changed, then run `vdoc validate` and
+`vdoc check`.
