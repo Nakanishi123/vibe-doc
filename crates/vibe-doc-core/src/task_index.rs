@@ -137,6 +137,9 @@ pub(crate) fn generate_task_index_markdown(documents: &[RepositoryDocument]) -> 
     push_task_index_section(&mut markdown, "Planned", planned);
     push_task_index_section(&mut markdown, "Blocked", blocked);
     push_task_index_section(&mut markdown, "Done", done);
+    if markdown.ends_with("\n\n") {
+        markdown.pop();
+    }
     Some(markdown)
 }
 

@@ -12,7 +12,6 @@ No tasks.
 
 ## Planned
 
-- 29 Implement validation and task mutation APIs
 - 30 Build read-only Web UI document views
 - 31 Build read-only task and ADR views
 - 32 Prepare controlled agent integration workflow
@@ -37,3 +36,4 @@ No tasks.
 - 26 Implement task context and guard commands
 - 27 Scaffold Web UI app and shared API types
 - 28 Implement server document APIs
+- 29 Implement validation and task mutation APIs

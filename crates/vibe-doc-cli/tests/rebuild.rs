@@ -16,7 +16,7 @@ fn rebuild_index_handles_empty_task_set() {
     assert!(index.contains("## Doing\n\nNo tasks.\n\n## Planned"));
     assert!(index.contains("## Planned\n\nNo tasks.\n\n## Blocked"));
     assert!(index.contains("## Blocked\n\nNo tasks.\n\n## Done"));
-    assert!(index.ends_with("## Done\n\nNo tasks.\n\n"));
+    assert!(index.ends_with("## Done\n\nNo tasks.\n"));
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn rebuild_index_json_output_is_stable() {
     assert_eq!(value["command"], "rebuild index");
     assert_eq!(value["dry_run"], true);
     assert_eq!(value["path"], "docs/tasks/index.md");
-    assert_eq!(value["action"], "overwrite");
+    assert_eq!(value["action"], "keep");
     assert!(value["content"]
         .as_str()
         .unwrap()

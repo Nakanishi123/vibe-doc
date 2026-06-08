@@ -135,6 +135,36 @@ export interface TaskContextFile {
   content: string;
 }
 
+export interface TaskMutationRequest {
+  dry_run?: boolean;
+  date?: string;
+  result?: string;
+}
+
+export interface TaskLifecycleResponse {
+  command: "start task" | "complete task";
+  dry_run: boolean;
+  task_id: number;
+  changes: TaskLifecycleChange[];
+}
+
+export interface TaskLifecycleChange {
+  path: string;
+  action: "overwrite" | "create" | "delete" | "keep";
+}
+
+export interface RebuildIndexRequest {
+  dry_run?: boolean;
+}
+
+export interface RebuildIndexResponse {
+  command: "rebuild index";
+  dry_run: boolean;
+  path: string;
+  action: "overwrite" | "keep";
+  content: string;
+}
+
 export interface ApiError {
   code: string;
   message: string;

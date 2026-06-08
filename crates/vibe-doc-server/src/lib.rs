@@ -4,10 +4,11 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
     Json, Router,
 };
-use serde::Serialize;
+use chrono::{Local, NaiveDate};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
@@ -16,9 +17,12 @@ use std::{
 };
 use thiserror::Error;
 use vibe_doc_core::{
-    scan_repository, AdrMetadata, AdrStatus, DesignMetadata, DocumentId, DocumentMetadata,
-    Priority, RepositoryDocument, RepositoryScanError, SpecMetadata, TaskMetadata, TaskStatus,
-    TaskType,
+    complete_task, rebuild_task_index, scan_repository, start_task, task_context,
+    validate_repository, AdrMetadata, AdrStatus, CompleteTaskOptions, DesignMetadata, DocumentId,
+    DocumentMetadata, Priority, RepositoryDocument, RepositoryScanError, SpecMetadata,
+    TaskContextError, TaskContextItem, TaskContextItemKind, TaskIndexRebuildError,
+    TaskIndexRebuildOptions, TaskLifecycleError, TaskLifecycleOptions, TaskLifecyclePlan,
+    TaskMetadata, TaskStatus, TaskType, ValidationIssue, ValidationRunError,
 };
 
 /// Stable crate identifier used by workspace smoke tests.
@@ -54,6 +58,14 @@ pub fn api_router(repository_root: impl Into<PathBuf>) -> Router {
         .route("/api/adr", get(list_adrs))
         .route("/api/tasks", get(list_tasks))
         .route("/api/tasks/{id}", get(task_detail))
+        .route("/api/validation", get(validation_report))
+        .route("/api/context/task/{id}", get(task_context_detail))
+        .route("/api/tasks/{id}/start", post(start_task_endpoint))
+        .route("/api/tasks/{id}/complete", post(complete_task_endpoint))
+        .route(
+            "/api/tasks/index/rebuild",
+            post(rebuild_task_index_endpoint),
+        )
         .with_state(ServerState::new(repository_root))
 }
 
@@ -172,6 +184,102 @@ async fn task_detail(
         &documents,
         document,
     )?))
+}
+
+async fn validation_report(
+    State(state): State<ServerState>,
+) -> Result<Json<ValidationResponse>, ApiFailure> {
+    let report = validate_repository(state.root()).map_err(ApiFailure::ValidationRun)?;
+    let error_count = report.issues.len();
+    Ok(Json(ValidationResponse {
+        status: if report.is_valid() { "ok" } else { "error" },
+        error_count,
+        warning_count: 0,
+        incomplete: report.incomplete,
+        issues: report
+            .issues
+            .iter()
+            .map(|issue| validation_issue_response(state.root(), issue))
+            .collect(),
+    }))
+}
+
+async fn task_context_detail(
+    State(state): State<ServerState>,
+    Path(id): Path<String>,
+) -> Result<Json<TaskContextResponse>, ApiFailure> {
+    let id = parse_document_id(&id, MissingCode::Task)?;
+    let context = task_context(state.root(), id).map_err(ApiFailure::TaskContext)?;
+    let documents = scan_documents(state.root())?;
+    let task = find_document(&documents, id, MissingCode::Task)?;
+    let DocumentMetadata::Task(metadata) = &task.document.metadata else {
+        return Err(ApiFailure::not_found(MissingCode::Task, id));
+    };
+
+    Ok(Json(TaskContextResponse {
+        task: task_summary(state.root(), task, metadata),
+        files: context
+            .items
+            .iter()
+            .map(|item| task_context_file(state.root(), item))
+            .collect(),
+    }))
+}
+
+async fn start_task_endpoint(
+    State(state): State<ServerState>,
+    Path(id): Path<String>,
+    body: Option<Json<TaskMutationRequest>>,
+) -> Result<Json<TaskLifecycleResponse>, ApiFailure> {
+    let id = parse_document_id(&id, MissingCode::Task)?;
+    let request = body.map(|Json(request)| request).unwrap_or_default();
+    let options = TaskLifecycleOptions {
+        dry_run: request.dry_run.unwrap_or(false),
+        date: lifecycle_date(request.date)?,
+    };
+    let dry_run = options.dry_run;
+    let plan = start_task(state.root(), id, options).map_err(ApiFailure::TaskLifecycle)?;
+    Ok(Json(task_lifecycle_response("start task", dry_run, &plan)))
+}
+
+async fn complete_task_endpoint(
+    State(state): State<ServerState>,
+    Path(id): Path<String>,
+    body: Option<Json<TaskMutationRequest>>,
+) -> Result<Json<TaskLifecycleResponse>, ApiFailure> {
+    let id = parse_document_id(&id, MissingCode::Task)?;
+    let request = body.map(|Json(request)| request).unwrap_or_default();
+    let options = CompleteTaskOptions {
+        lifecycle: TaskLifecycleOptions {
+            dry_run: request.dry_run.unwrap_or(false),
+            date: lifecycle_date(request.date)?,
+        },
+        result: request.result,
+    };
+    let dry_run = options.lifecycle.dry_run;
+    let plan = complete_task(state.root(), id, options).map_err(ApiFailure::TaskLifecycle)?;
+    Ok(Json(task_lifecycle_response(
+        "complete task",
+        dry_run,
+        &plan,
+    )))
+}
+
+async fn rebuild_task_index_endpoint(
+    State(state): State<ServerState>,
+    body: Option<Json<RebuildIndexRequest>>,
+) -> Result<Json<RebuildIndexResponse>, ApiFailure> {
+    let request = body.map(|Json(request)| request).unwrap_or_default();
+    let dry_run = request.dry_run.unwrap_or(false);
+    let plan = rebuild_task_index(state.root(), TaskIndexRebuildOptions { dry_run })
+        .map_err(ApiFailure::RebuildIndex)?;
+    Ok(Json(RebuildIndexResponse {
+        command: "rebuild index",
+        dry_run,
+        path: display_path(&plan.path),
+        action: plan.action.as_str().to_owned(),
+        content: plan.content,
+    }))
 }
 
 fn scan_documents(root: &FsPath) -> Result<Vec<RepositoryDocument>, ApiFailure> {
@@ -479,6 +587,77 @@ fn display_path(path: &FsPath) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
+fn lifecycle_date(date: Option<String>) -> Result<String, ApiFailure> {
+    let Some(date) = date else {
+        return Ok(Local::now().date_naive().format("%Y-%m-%d").to_string());
+    };
+    parse_lifecycle_date(&date)?;
+    Ok(date)
+}
+
+fn parse_lifecycle_date(date: &str) -> Result<NaiveDate, ApiFailure> {
+    let parsed = NaiveDate::parse_from_str(date, "%Y-%m-%d").map_err(|_| {
+        ApiFailure::InvalidRequest(format!("invalid date `{date}`; expected YYYY-MM-DD"))
+    })?;
+    if parsed.format("%Y-%m-%d").to_string() != date {
+        return Err(ApiFailure::InvalidRequest(format!(
+            "invalid date `{date}`; expected YYYY-MM-DD"
+        )));
+    }
+    Ok(parsed)
+}
+
+fn validation_issue_response(root: &FsPath, issue: &ValidationIssue) -> ValidationIssueResponse {
+    ValidationIssueResponse {
+        severity: "error",
+        code: issue.code.as_str().to_owned(),
+        message: issue.message.clone(),
+        path: issue
+            .path
+            .as_ref()
+            .map(|path| display_path(&relative_path(root, path))),
+        document_id: None,
+        suggested_fix: None,
+    }
+}
+
+fn task_context_file(root: &FsPath, item: &TaskContextItem) -> TaskContextFile {
+    TaskContextFile {
+        path: display_path(&relative_path(root, &item.path)),
+        role: task_context_role(item.kind),
+        content: item.content.clone(),
+    }
+}
+
+fn task_context_role(kind: TaskContextItemKind) -> &'static str {
+    match kind {
+        TaskContextItemKind::Task => "task",
+        TaskContextItemKind::Spec => "spec",
+        TaskContextItemKind::Design => "design",
+        TaskContextItemKind::Adr => "adr",
+    }
+}
+
+fn task_lifecycle_response(
+    command: &'static str,
+    dry_run: bool,
+    plan: &TaskLifecyclePlan,
+) -> TaskLifecycleResponse {
+    TaskLifecycleResponse {
+        command,
+        dry_run,
+        task_id: plan.task_id.get(),
+        changes: plan
+            .changes
+            .iter()
+            .map(|change| TaskLifecycleChangeResponse {
+                path: display_path(&change.path),
+                action: change.action.as_str().to_owned(),
+            })
+            .collect(),
+    }
+}
+
 #[derive(Debug, Serialize)]
 struct HealthResponse {
     status: &'static str,
@@ -581,6 +760,76 @@ struct TaskSummary {
 }
 
 #[derive(Debug, Serialize)]
+struct ValidationResponse {
+    status: &'static str,
+    error_count: usize,
+    warning_count: usize,
+    incomplete: bool,
+    issues: Vec<ValidationIssueResponse>,
+}
+
+#[derive(Debug, Serialize)]
+struct ValidationIssueResponse {
+    severity: &'static str,
+    code: String,
+    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    document_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    suggested_fix: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct TaskContextResponse {
+    task: TaskSummary,
+    files: Vec<TaskContextFile>,
+}
+
+#[derive(Debug, Serialize)]
+struct TaskContextFile {
+    path: String,
+    role: &'static str,
+    content: String,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct TaskMutationRequest {
+    dry_run: Option<bool>,
+    date: Option<String>,
+    result: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct RebuildIndexRequest {
+    dry_run: Option<bool>,
+}
+
+#[derive(Debug, Serialize)]
+struct TaskLifecycleResponse {
+    command: &'static str,
+    dry_run: bool,
+    task_id: u64,
+    changes: Vec<TaskLifecycleChangeResponse>,
+}
+
+#[derive(Debug, Serialize)]
+struct TaskLifecycleChangeResponse {
+    path: String,
+    action: String,
+}
+
+#[derive(Debug, Serialize)]
+struct RebuildIndexResponse {
+    command: &'static str,
+    dry_run: bool,
+    path: String,
+    action: String,
+    content: String,
+}
+
+#[derive(Debug, Serialize)]
 struct ApiError {
     code: &'static str,
     message: String,
@@ -594,6 +843,14 @@ struct ApiError {
 enum ApiFailure {
     #[error(transparent)]
     Scan(#[from] RepositoryScanError),
+    #[error(transparent)]
+    ValidationRun(#[from] ValidationRunError),
+    #[error(transparent)]
+    TaskContext(#[from] TaskContextError),
+    #[error(transparent)]
+    TaskLifecycle(#[from] TaskLifecycleError),
+    #[error(transparent)]
+    RebuildIndex(#[from] TaskIndexRebuildError),
     #[error("invalid document ID `{raw}`")]
     InvalidId {
         raw: String,
@@ -606,6 +863,8 @@ enum ApiFailure {
     },
     #[error("failed to parse document frontmatter for API response: {message}")]
     Frontmatter { message: String },
+    #[error("{0}")]
+    InvalidRequest(String),
 }
 
 impl ApiFailure {
@@ -626,6 +885,44 @@ impl IntoResponse for ApiFailure {
                     document_id: None,
                 },
             ),
+            Self::ValidationRun(error) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiError {
+                    code: "VALIDATION_RUN_FAILED",
+                    message: error.to_string(),
+                    path: None,
+                    document_id: None,
+                },
+            ),
+            Self::TaskContext(TaskContextError::TaskNotFound { id }) => (
+                StatusCode::NOT_FOUND,
+                ApiError {
+                    code: "TASK_NOT_FOUND",
+                    message: format!("task {} was not found", id.get()),
+                    path: None,
+                    document_id: Some(id.get()),
+                },
+            ),
+            Self::TaskContext(TaskContextError::MissingRelatedDocument { id, .. }) => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                ApiError {
+                    code: "TASK_CONTEXT_MISSING_RELATED_DOCUMENT",
+                    message: self.to_string(),
+                    path: None,
+                    document_id: Some(id.get()),
+                },
+            ),
+            Self::TaskContext(TaskContextError::RepositoryScan(error)) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiError {
+                    code: "TASK_CONTEXT_SCAN_FAILED",
+                    message: error.to_string(),
+                    path: None,
+                    document_id: None,
+                },
+            ),
+            Self::TaskLifecycle(error) => task_lifecycle_api_error(error),
+            Self::RebuildIndex(error) => rebuild_index_api_error(error),
             Self::InvalidId { raw, missing_code } => (
                 StatusCode::BAD_REQUEST,
                 ApiError {
@@ -653,9 +950,135 @@ impl IntoResponse for ApiFailure {
                     document_id: None,
                 },
             ),
+            Self::InvalidRequest(message) => (
+                StatusCode::BAD_REQUEST,
+                ApiError {
+                    code: "INVALID_REQUEST",
+                    message,
+                    path: None,
+                    document_id: None,
+                },
+            ),
         };
 
         (status, Json(json!({ "error": error }))).into_response()
+    }
+}
+
+fn task_lifecycle_api_error(error: TaskLifecycleError) -> (StatusCode, ApiError) {
+    match error {
+        TaskLifecycleError::TaskNotFound { id } => (
+            StatusCode::NOT_FOUND,
+            ApiError {
+                code: "TASK_LIFECYCLE_TASK_NOT_FOUND",
+                message: format!("task {} was not found", id.get()),
+                path: None,
+                document_id: Some(id.get()),
+            },
+        ),
+        TaskLifecycleError::InvalidTaskStatus {
+            id,
+            status,
+            expected,
+        } => (
+            StatusCode::CONFLICT,
+            ApiError {
+                code: "TASK_LIFECYCLE_INVALID_STATUS",
+                message: format!(
+                    "task {} has status {}; expected {expected}",
+                    id.get(),
+                    task_status_as_str(status)
+                ),
+                path: None,
+                document_id: Some(id.get()),
+            },
+        ),
+        TaskLifecycleError::InvalidTaskLocation { ref path }
+        | TaskLifecycleError::DestinationExists { ref path }
+        | TaskLifecycleError::ReadFile { ref path, .. }
+        | TaskLifecycleError::CreateDir { ref path, .. }
+        | TaskLifecycleError::WriteFile { ref path, .. }
+        | TaskLifecycleError::DeleteFile { ref path, .. } => (
+            StatusCode::CONFLICT,
+            ApiError {
+                code: "TASK_LIFECYCLE_IO_FAILED",
+                message: error.to_string(),
+                path: Some(display_path(&path)),
+                document_id: None,
+            },
+        ),
+        TaskLifecycleError::RepositoryScan(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError {
+                code: "TASK_LIFECYCLE_SCAN_FAILED",
+                message: error.to_string(),
+                path: None,
+                document_id: None,
+            },
+        ),
+        TaskLifecycleError::FrontmatterParse(_)
+        | TaskLifecycleError::FrontmatterNotMapping
+        | TaskLifecycleError::FrontmatterSerialize(_)
+        | TaskLifecycleError::Parse(_) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ApiError {
+                code: "TASK_LIFECYCLE_PARSE_FAILED",
+                message: error.to_string(),
+                path: None,
+                document_id: None,
+            },
+        ),
+        TaskLifecycleError::Validation(_) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ApiError {
+                code: "TASK_LIFECYCLE_VALIDATION_FAILED",
+                message: error.to_string(),
+                path: None,
+                document_id: None,
+            },
+        ),
+        TaskLifecycleError::ValidationRun(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError {
+                code: "TASK_LIFECYCLE_VALIDATION_RUN_FAILED",
+                message: error.to_string(),
+                path: None,
+                document_id: None,
+            },
+        ),
+    }
+}
+
+fn rebuild_index_api_error(error: TaskIndexRebuildError) -> (StatusCode, ApiError) {
+    match error {
+        TaskIndexRebuildError::RepositoryScan(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError {
+                code: "REBUILD_INDEX_SCAN_FAILED",
+                message: error.to_string(),
+                path: None,
+                document_id: None,
+            },
+        ),
+        TaskIndexRebuildError::MissingTaskIndex => (
+            StatusCode::NOT_FOUND,
+            ApiError {
+                code: "REBUILD_INDEX_MISSING_TASK_INDEX",
+                message: error.to_string(),
+                path: Some("docs/tasks/index.md".to_owned()),
+                document_id: None,
+            },
+        ),
+        TaskIndexRebuildError::ReadFile { ref path, .. }
+        | TaskIndexRebuildError::WriteFile { ref path, .. } => (
+            StatusCode::CONFLICT,
+            ApiError {
+                code: "REBUILD_INDEX_IO_FAILED",
+                message: error.to_string(),
+                path: Some(display_path(&path)),
+                document_id: None,
+            },
+        ),
     }
 }
 
@@ -686,7 +1109,7 @@ mod tests {
     use super::*;
     use axum::{
         body::Body,
-        http::{Request, StatusCode},
+        http::{Method, Request, StatusCode},
     };
     use http_body_util::BodyExt;
     use std::{
@@ -781,6 +1204,119 @@ mod tests {
         assert_eq!(traversal.status, StatusCode::NOT_FOUND);
     }
 
+    #[tokio::test]
+    async fn validation_endpoint_returns_stable_errors() {
+        let repo = TestRepo::new("validation");
+        repo.seed();
+
+        let response = request_json(api_router(repo.path()), "/api/validation").await;
+
+        assert_eq!(response.status, StatusCode::OK);
+        assert_eq!(response.body["status"], "error");
+        assert_eq!(response.body["issues"][0]["severity"], "error");
+        assert_eq!(response.body["issues"][0]["code"], "SCHEMA_NOT_FOUND");
+        assert!(response.body["error_count"].as_u64().unwrap() > 0);
+    }
+
+    #[tokio::test]
+    async fn task_context_endpoint_returns_task_context_files() {
+        let repo = TestRepo::new("context");
+        repo.seed();
+
+        let response = request_json(api_router(repo.path()), "/api/context/task/28").await;
+
+        assert_eq!(response.status, StatusCode::OK);
+        assert_eq!(response.body["task"]["id"], 28);
+        assert_eq!(response.body["files"][0]["role"], "task");
+        assert_eq!(response.body["files"][1]["role"], "spec");
+        assert_eq!(response.body["files"][2]["role"], "design");
+        assert_eq!(response.body["files"][3]["role"], "adr");
+    }
+
+    #[tokio::test]
+    async fn task_mutation_endpoints_use_core_lifecycle_behavior() {
+        let repo = TestRepo::new("mutations");
+        repo.seed_mutable();
+
+        let start = post_json(
+            api_router(repo.path()),
+            "/api/tasks/2/start",
+            json!({ "date": "2026-06-08" }),
+        )
+        .await;
+
+        assert_eq!(start.status, StatusCode::OK);
+        assert_eq!(start.body["command"], "start task");
+        assert_eq!(start.body["task_id"], 2);
+        assert_eq!(start.body["changes"][0]["action"], "overwrite");
+        let active = fs::read_to_string(repo.root.join("docs/tasks/active/2-api.md")).unwrap();
+        assert!(active.contains("status: doing"));
+        assert!(active.contains("started_at: 2026-06-08"));
+
+        let complete = post_json(
+            api_router(repo.path()),
+            "/api/tasks/2/complete",
+            json!({
+                "date": "2026-06-08",
+                "result": "Implemented server mutation APIs."
+            }),
+        )
+        .await;
+
+        assert_eq!(complete.status, StatusCode::OK);
+        assert_eq!(complete.body["command"], "complete task");
+        assert!(!repo.root.join("docs/tasks/active/2-api.md").exists());
+        let done = fs::read_to_string(repo.root.join("docs/tasks/done/2-api.md")).unwrap();
+        assert!(done.contains("status: done"));
+        assert!(done.contains("completed_at: 2026-06-08"));
+        assert!(done.contains("Implemented server mutation APIs."));
+    }
+
+    #[tokio::test]
+    async fn mutation_endpoints_reject_invalid_ids_and_invalid_statuses() {
+        let repo = TestRepo::new("mutation-errors");
+        repo.seed_mutable();
+
+        let invalid_id = post_json(
+            api_router(repo.path()),
+            "/api/tasks/not-a-number/start",
+            json!({}),
+        )
+        .await;
+        assert_eq!(invalid_id.status, StatusCode::BAD_REQUEST);
+        assert_eq!(invalid_id.body["error"]["code"], "INVALID_TASK_ID");
+
+        let invalid_status =
+            post_json(api_router(repo.path()), "/api/tasks/2/complete", json!({})).await;
+        assert_eq!(invalid_status.status, StatusCode::CONFLICT);
+        assert_eq!(
+            invalid_status.body["error"]["code"],
+            "TASK_LIFECYCLE_INVALID_STATUS"
+        );
+
+        let traversal = request(api_router(repo.path()), "/api/tasks/%2E%2E/%2E%2E/start").await;
+        assert_eq!(traversal.status, StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn rebuild_index_endpoint_is_limited_to_task_index_generation() {
+        let repo = TestRepo::new("rebuild-index");
+        repo.seed_mutable();
+
+        let response = post_json(
+            api_router(repo.path()),
+            "/api/tasks/index/rebuild",
+            json!({}),
+        )
+        .await;
+
+        assert_eq!(response.status, StatusCode::OK);
+        assert_eq!(response.body["command"], "rebuild index");
+        assert_eq!(response.body["path"], "docs/tasks/index.md");
+        let index = fs::read_to_string(repo.root.join("docs/tasks/index.md")).unwrap();
+        assert!(index.contains("- 2 API"));
+    }
+
     async fn request_json(router: Router, uri: &str) -> TestResponse {
         let response = request(router, uri).await;
         let body = serde_json::from_slice(&response.body).unwrap();
@@ -790,9 +1326,34 @@ mod tests {
         }
     }
 
+    async fn post_json(router: Router, uri: &str, body: Value) -> TestResponse {
+        let response = request_with_body(router, Method::POST, uri, body.to_string()).await;
+        let body = serde_json::from_slice(&response.body).unwrap();
+        TestResponse {
+            status: response.status,
+            body,
+        }
+    }
+
     async fn request(router: Router, uri: &str) -> RawTestResponse {
+        request_with_body(router, Method::GET, uri, String::new()).await
+    }
+
+    async fn request_with_body(
+        router: Router,
+        method: Method,
+        uri: &str,
+        body: String,
+    ) -> RawTestResponse {
         let response = router
-            .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
             .await
             .unwrap();
         let status = response.status();
@@ -937,6 +1498,42 @@ depends_on: []
 ---
 
 # Dropped
+",
+            );
+        }
+
+        fn seed_mutable(&self) {
+            vibe_doc_core::init_repository(
+                &self.root,
+                vibe_doc_core::InitOptions {
+                    dry_run: false,
+                    force: false,
+                },
+            )
+            .unwrap();
+            self.write(
+                "docs/tasks/active/2-api.md",
+                "\
+---
+id: 2
+title: API
+kind: task
+type: feature
+status: planned
+priority: high
+specs: []
+designs: []
+adrs: []
+depends_on: []
+---
+
+## Goal
+
+Expose APIs.
+
+## Result
+
+Not implemented.
 ",
             );
         }
