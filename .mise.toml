@@ -1,2 +1,14 @@
 [tools]
 pnpm = "11"
+
+[tasks.web]
+description = "Start the Web UI development server"
+run = "pnpm web:dev"
+
+[tasks."web:build"]
+description = "Build the Web UI"
+run = "pnpm web:build"
+
+[tasks."web:typecheck"]
+description = "Typecheck the Web UI"
+run = "pnpm web:typecheck"
