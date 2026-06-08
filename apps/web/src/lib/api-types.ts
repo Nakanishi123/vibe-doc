@@ -1,4 +1,4 @@
-export type DocumentKind = "spec" | "design" | "adr" | "task";
+export type DocumentKind = "spec" | "design" | "adr" | "task" | "task-index";
 
 export type TaskStatus = "planned" | "doing" | "blocked" | "done" | "dropped";
 
@@ -9,6 +9,7 @@ export type TaskPriority = "low" | "medium" | "high" | "critical";
 export type AdrStatus =
   | "proposed"
   | "accepted"
+  | "rejected"
   | "deprecated"
   | "superseded";
 
@@ -40,8 +41,14 @@ export interface DocumentDetail extends DocumentSummary {
   frontmatter: Record<string, unknown>;
   markdown: string;
   html?: string;
+  related_ids: RelatedDocumentId[];
   related_documents: RelatedDocument[];
   validation: ValidationIssue[];
+}
+
+export interface RelatedDocumentId {
+  id: number;
+  relation: "spec" | "design" | "adr" | "task" | "dependency";
 }
 
 export interface RelatedDocument {
