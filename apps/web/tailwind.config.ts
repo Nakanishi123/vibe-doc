@@ -6,33 +6,53 @@ export default {
     extend: {
       colors: {
         surface: {
-          DEFAULT: "#f8fafc",
-          raised: "#ffffff",
-          muted: "#eef2f7",
+          DEFAULT: "rgb(var(--color-surface) / <alpha-value>)",
+          raised: "rgb(var(--color-surface-raised) / <alpha-value>)",
+          muted: "rgb(var(--color-surface-muted) / <alpha-value>)",
+          wash: "rgb(var(--color-surface-wash) / <alpha-value>)",
         },
         ink: {
-          DEFAULT: "#172033",
-          muted: "#5b667a",
-          soft: "#7b8495",
+          DEFAULT: "rgb(var(--color-ink) / <alpha-value>)",
+          muted: "rgb(var(--color-ink-muted) / <alpha-value>)",
+          soft: "rgb(var(--color-ink-soft) / <alpha-value>)",
         },
         action: {
-          DEFAULT: "#0f766e",
-          soft: "#ccfbf1",
-          border: "#5eead4",
+          DEFAULT: "rgb(var(--color-action) / <alpha-value>)",
+          soft: "rgb(var(--color-action-soft) / <alpha-value>)",
+          border: "rgb(var(--color-action-border) / <alpha-value>)",
+          strong: "rgb(var(--color-action-strong) / <alpha-value>)",
         },
         attention: {
-          DEFAULT: "#b45309",
-          soft: "#fef3c7",
+          DEFAULT: "rgb(var(--color-attention) / <alpha-value>)",
+          soft: "rgb(var(--color-attention-soft) / <alpha-value>)",
+          border: "rgb(var(--color-attention-border) / <alpha-value>)",
+        },
+        line: {
+          DEFAULT: "rgb(var(--color-line) / <alpha-value>)",
+          soft: "rgb(var(--color-line-soft) / <alpha-value>)",
+        },
+        field: {
+          DEFAULT: "rgb(var(--color-field) / <alpha-value>)",
+        },
+        danger: {
+          DEFAULT: "rgb(var(--color-danger) / <alpha-value>)",
+          soft: "rgb(var(--color-danger-soft) / <alpha-value>)",
+          border: "rgb(var(--color-danger-border) / <alpha-value>)",
         },
       },
       fontFamily: {
+        display: [
+          "Georgia",
+          "Iowan Old Style",
+          "Palatino Linotype",
+          "serif",
+        ],
         sans: [
-          "Inter",
+          "Aptos",
+          "Source Sans 3",
           "ui-sans-serif",
           "system-ui",
           "-apple-system",
-          "BlinkMacSystemFont",
-          "Segoe UI",
           "sans-serif",
         ],
       },

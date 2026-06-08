@@ -14,7 +14,7 @@ export function TaskFilters({
   onReset: () => void;
 }) {
   return (
-    <section className="grid gap-3 rounded border border-slate-200 bg-surface-raised p-4 md:grid-cols-[160px_160px_160px_1fr_auto]">
+    <section className="grid gap-3 rounded-lg border border-line bg-surface-raised p-4 md:grid-cols-[160px_160px_160px_1fr_auto]">
       <SelectFilter
         label="Status"
         onChange={(status) => onChange({ ...filters, status: status as TaskFilterState["status"] })}
@@ -36,7 +36,7 @@ export function TaskFilters({
       <label className="space-y-1 text-sm font-medium text-ink-muted">
         <span>Tag</span>
         <input
-          className="h-10 w-full rounded border border-slate-300 bg-white px-3 text-ink"
+          className="h-10 w-full rounded border border-line bg-field px-3 text-ink outline-none transition focus:border-action-border"
           onChange={(event) => onChange({ ...filters, tag: event.target.value })}
           type="search"
           value={filters.tag}
@@ -44,7 +44,7 @@ export function TaskFilters({
       </label>
       <div className="flex items-end">
         <button
-          className="h-10 rounded border border-slate-200 bg-surface px-3 text-sm font-medium text-ink-muted hover:bg-surface-muted hover:text-ink"
+          className="h-10 rounded border border-line bg-surface px-3 text-sm font-medium text-ink-muted hover:bg-surface-muted hover:text-ink"
           onClick={onReset}
           type="button"
         >
@@ -70,7 +70,7 @@ function SelectFilter({
     <label className="space-y-1 text-sm font-medium text-ink-muted">
       <span>{label}</span>
       <select
-        className="h-10 w-full rounded border border-slate-300 bg-white px-3 text-ink"
+        className="h-10 w-full rounded border border-line bg-field px-3 text-ink outline-none transition focus:border-action-border"
         onChange={(event) => onChange(event.target.value)}
         value={value}
       >

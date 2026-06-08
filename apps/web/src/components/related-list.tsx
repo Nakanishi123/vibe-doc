@@ -21,7 +21,7 @@ export function RelatedList({
           ?? documents.find((document) => document.id === related.id);
         return (
           <button
-            className="block w-full rounded border border-slate-200 bg-white p-3 text-left hover:bg-surface-muted"
+            className="block w-full rounded border border-line bg-surface-raised p-3 text-left hover:bg-surface-muted"
             key={`${related.relation}-${related.id}`}
             onClick={() => navigate({ name: "detail", id: related.id }, `/documents/${related.id}`)}
             type="button"

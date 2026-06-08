@@ -58,25 +58,25 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-surface text-ink">
-      <header className="border-b border-slate-200 bg-surface-raised">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+      <header className="border-b border-line bg-surface-raised/90 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-6 sm:px-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-action">vibe-doc</p>
-            <h1 className="text-2xl font-semibold tracking-normal">Repository docs</h1>
+            <p className="text-xs font-semibold uppercase text-action" translate="no">vibe-doc</p>
+            <h1 className="font-display text-4xl font-normal tracking-normal sm:text-5xl">Repository Journal</h1>
           </div>
           <StatusPill health={health} validation={validation} />
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-5 sm:px-6 lg:grid-cols-[220px_1fr]">
-        <aside className="h-fit lg:border-r lg:border-slate-200 lg:pr-4">
-          <nav aria-label="Primary screens" className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:block lg:space-y-1">
+      <div className="mx-auto grid max-w-7xl gap-7 px-4 py-7 sm:px-6 lg:grid-cols-[220px_1fr]">
+        <aside className="h-fit lg:sticky lg:top-6 lg:border-r lg:border-line lg:pr-4">
+          <nav aria-label="Primary screens" className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:block lg:space-y-2">
             {navItems.map((item) => (
               <button
-                className={`flex min-h-10 items-center justify-between rounded border px-3 py-2 text-left text-sm font-medium lg:w-full ${
+                className={`flex min-h-10 items-center justify-between rounded-full border px-4 py-2 text-left text-sm font-semibold transition lg:w-full ${
                   isActiveRoute(route, item.route)
-                    ? "border-action bg-action-soft text-action"
-                    : "border-slate-200 bg-surface-raised text-ink-muted hover:bg-surface-muted hover:text-ink"
+                    ? "border-action-border bg-action-soft text-action"
+                    : "border-line bg-surface-raised/80 text-ink-muted hover:border-action-border hover:bg-surface-muted hover:text-ink"
                 }`}
                 key={item.href}
                 onClick={() => navigate(item.route, item.href)}

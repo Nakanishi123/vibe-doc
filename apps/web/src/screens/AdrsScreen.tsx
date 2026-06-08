@@ -21,7 +21,7 @@ export function AdrsScreen({
         meta={adrs.status === "ready" ? `${adrs.data.length} ADRs` : "Loading"}
       />
       <LoadBoundary state={adrs}>
-        <div className="overflow-hidden rounded border border-slate-200 bg-surface-raised">
+        <div className="overflow-hidden rounded-lg border border-line bg-surface-raised">
           <table className="w-full table-fixed text-left text-sm">
             <thead className="bg-surface-muted text-xs uppercase text-ink-soft">
               <tr>
@@ -34,7 +34,7 @@ export function AdrsScreen({
                 <th className="w-20 px-4 py-3">Issues</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-line">
               {adrs.status === "ready" && adrs.data.length === 0 ? (
                 <tr>
                   <td className="px-4 py-8 text-center text-ink-muted" colSpan={7}>No ADRs found.</td>
@@ -78,8 +78,8 @@ function AdrStatusBadge({ status }: { status: string }) {
   const className = status === "accepted"
     ? "border-action-border bg-action-soft text-action"
     : status === "rejected" || status === "deprecated" || status === "superseded"
-      ? "border-slate-200 bg-surface-muted text-ink-muted"
-      : "border-amber-200 bg-attention-soft text-attention";
+      ? "border-line bg-surface-muted text-ink-muted"
+      : "border-attention-border bg-attention-soft text-attention";
 
   return <span className={`rounded border px-2 py-1 text-xs font-medium ${className}`}>{status}</span>;
 }

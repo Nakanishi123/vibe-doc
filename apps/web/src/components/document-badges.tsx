@@ -12,7 +12,13 @@ export function TagList({ tags }: { tags: string[] }) {
   return (
     <div className="flex flex-wrap gap-1">
       {tags.map((tag) => (
-        <span className="rounded bg-surface-muted px-2 py-1 text-xs text-ink-muted" key={tag} translate="no">{tag}</span>
+        <span
+          className="rounded border border-action-border/35 bg-surface-raised px-2 py-1 text-xs text-action"
+          key={tag}
+          translate="no"
+        >
+          {tag}
+        </span>
       ))}
     </div>
   );

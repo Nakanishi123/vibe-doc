@@ -27,13 +27,13 @@ const components: Components = {
     </a>
   ),
   table: ({ children }) => (
-    <div className="overflow-x-auto rounded border border-slate-200">
+    <div className="overflow-x-auto rounded border border-line">
       <table className="min-w-full border-collapse text-left text-sm">{children}</table>
     </div>
   ),
   thead: ({ children }) => <thead className="bg-surface-muted text-xs uppercase text-ink-muted">{children}</thead>,
-  th: ({ children }) => <th className="border-b border-slate-200 px-3 py-2 font-semibold">{children}</th>,
-  td: ({ children }) => <td className="border-b border-slate-100 px-3 py-2 align-top">{children}</td>,
+  th: ({ children }) => <th className="border-b border-line px-3 py-2 font-semibold">{children}</th>,
+  td: ({ children }) => <td className="border-b border-line-soft px-3 py-2 align-top">{children}</td>,
   input: ({ checked, disabled, type }) => {
     if (type !== "checkbox") {
       return <input checked={checked} disabled={disabled} type={type} />;
@@ -41,7 +41,7 @@ const components: Components = {
     return (
       <input
         checked={checked}
-        className="mr-2 h-4 w-4 translate-y-0.5 rounded border-slate-300 accent-action"
+        className="mr-2 h-4 w-4 translate-y-0.5 rounded border-line accent-action"
         disabled
         readOnly
         type="checkbox"
@@ -69,7 +69,7 @@ const components: Components = {
     </pre>
   ),
   blockquote: ({ children }) => (
-    <blockquote className="border-l-4 border-slate-200 pl-4 text-ink-muted">{children}</blockquote>
+    <blockquote className="border-l-4 border-action-border pl-4 text-ink-muted">{children}</blockquote>
   ),
 };
 

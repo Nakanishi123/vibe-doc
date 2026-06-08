@@ -15,7 +15,7 @@ export function DocumentTable({
   validationIssues: ValidationIssue[];
 }) {
   return (
-    <div className="overflow-hidden rounded border border-slate-200 bg-surface-raised">
+    <div className="overflow-hidden rounded-lg border border-line bg-surface-raised">
       <table className="w-full table-fixed text-left text-sm">
         <thead className="bg-surface-muted text-xs uppercase text-ink-soft">
           <tr>
@@ -26,7 +26,7 @@ export function DocumentTable({
             <th className="w-24 px-4 py-3">Issues</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200">
+        <tbody className="divide-y divide-line">
           {documents.length === 0 ? (
             <tr>
               <td className="px-4 py-8 text-center text-ink-muted" colSpan={5}>{emptyMessage}</td>
@@ -71,7 +71,7 @@ export function SpecializedTable<T extends DocumentSummary>({
   validationIssues: ValidationIssue[];
 }) {
   return (
-    <div className="overflow-hidden rounded border border-slate-200 bg-surface-raised">
+    <div className="overflow-hidden rounded-lg border border-line bg-surface-raised">
       <table className="w-full table-fixed text-left text-sm">
         <thead className="bg-surface-muted text-xs uppercase text-ink-soft">
           <tr>
@@ -83,7 +83,7 @@ export function SpecializedTable<T extends DocumentSummary>({
             <th className="w-24 px-4 py-3">Issues</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200">
+        <tbody className="divide-y divide-line">
           {documents.length === 0 ? (
             <tr>
               <td className="px-4 py-8 text-center text-ink-muted" colSpan={3 + relationColumns.length}>{emptyMessage}</td>

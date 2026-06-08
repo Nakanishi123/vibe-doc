@@ -38,18 +38,18 @@ export function TaskDetailScreen({
 
   return (
     <article className="space-y-5">
-      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="flex flex-col gap-3 border-b border-line pb-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-ink-muted">
             <KindBadge kind={task.kind} />
             <span translate="no">#{task.id}</span>
             <span className="truncate" translate="no">{task.path}</span>
           </div>
-          <h2 className="text-2xl font-semibold tracking-normal">{task.title}</h2>
+          <h2 className="font-display text-3xl font-normal tracking-normal">{task.title}</h2>
           <div className="mt-3"><TagList tags={task.tags ?? []} /></div>
         </div>
         <button
-          className="w-fit rounded border border-slate-200 bg-surface-raised px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface-muted hover:text-ink"
+          className="w-fit rounded border border-line bg-surface-raised px-3 py-2 text-sm font-medium text-ink-muted hover:bg-surface-muted hover:text-ink"
           onClick={() => navigate({ name: "tasks" }, "/tasks")}
           type="button"
         >
@@ -127,7 +127,7 @@ function DependencyList({
         const found = detail.related_documents.find((document) => document.id === dependency.id)
           ?? documents.find((document) => document.id === dependency.id);
         return (
-          <div className="rounded border border-slate-200 bg-white p-3" key={dependency.id}>
+          <div className="rounded border border-line bg-surface-raised p-3" key={dependency.id}>
             <div className="mb-2 text-xs font-medium uppercase text-ink-soft">Dependency</div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <span className="min-w-0 truncate text-sm font-medium">

@@ -75,7 +75,7 @@ function TaskGroup({
 }) {
   return (
     <Panel title={`${title} tasks (${tasks.length})`}>
-      <div className="overflow-hidden rounded border border-slate-200">
+      <div className="overflow-hidden rounded-lg border border-line">
         <table className="w-full table-fixed text-left text-sm">
           <thead className="bg-surface-muted text-xs uppercase text-ink-soft">
             <tr>
@@ -88,7 +88,7 @@ function TaskGroup({
               <th className="w-20 px-4 py-3">Issues</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 bg-surface-raised">
+          <tbody className="divide-y divide-line bg-surface-raised">
             {tasks.length === 0 ? (
               <tr>
                 <td className="px-4 py-8 text-center text-ink-muted" colSpan={7}>{emptyMessage}</td>
@@ -131,9 +131,9 @@ function TaskGroup({
 
 function StatusBadge({ value }: { value: string }) {
   const className = value === "blocked"
-    ? "border-amber-200 bg-attention-soft text-attention"
+    ? "border-attention-border bg-attention-soft text-attention"
     : value === "done" || value === "dropped"
-      ? "border-slate-200 bg-surface-muted text-ink-muted"
+      ? "border-line bg-surface-muted text-ink-muted"
       : "border-action-border bg-action-soft text-action";
 
   return <span className={`rounded border px-2 py-1 text-xs font-medium ${className}`}>{value}</span>;
