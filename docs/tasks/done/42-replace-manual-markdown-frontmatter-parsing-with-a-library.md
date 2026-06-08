@@ -3,13 +3,15 @@ id: 42
 title: Replace manual Web UI Markdown rendering with a library
 kind: task
 type: refactor
-status: planned
+status: done
 priority: medium
 specs:
 - 9
 - 10
 designs:
 - 33
+started_at: 2026-06-08
+completed_at: 2026-06-08
 ---
 
 ## Goal
@@ -46,20 +48,20 @@ easier to style.
 
 ## Checklist
 
-- [ ] `react-markdown` and `remark-gfm` are added to the Web UI dependencies.
-- [ ] The manual `markdownToBlocks` renderer is removed or no longer used.
-- [ ] Markdown body content renders through the library-backed `MarkdownView`.
-- [ ] Raw HTML handling is explicitly safe.
-- [ ] Common Markdown structures render with polished document styling.
-- [ ] Relevant frontend tests and build checks pass.
+- [x] `react-markdown` and `remark-gfm` are added to the Web UI dependencies.
+- [x] The manual `markdownToBlocks` renderer is removed or no longer used.
+- [x] Markdown body content renders through the library-backed `MarkdownView`.
+- [x] Raw HTML handling is explicitly safe.
+- [x] Common Markdown structures render with polished document styling.
+- [x] Relevant frontend tests and build checks pass.
 
 ## Done Criteria
 
-- [ ] Related specs are satisfied.
-- [ ] Related designs are followed.
-- [ ] Related ADRs are not violated.
-- [ ] Tests pass.
+- [x] Related specs are satisfied.
+- [x] Related designs are followed.
+- [x] Related ADRs are not violated.
+- [x] Tests pass.
 
 ## Result
 
-Not implemented.
+Replaced the Web UI's hand-written Markdown renderer with react-markdown and remark-gfm, added safe library-backed component mappings for common Markdown structures, and removed the old parser.
