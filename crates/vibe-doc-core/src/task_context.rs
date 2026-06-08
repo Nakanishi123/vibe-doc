@@ -24,7 +24,6 @@ pub struct TaskContextItem {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TaskContextItemKind {
-    AgentInstructions,
     Task,
     Spec,
     Design,
@@ -34,7 +33,6 @@ pub enum TaskContextItemKind {
 impl TaskContextItemKind {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::AgentInstructions => "agent-instructions",
             Self::Task => "task",
             Self::Spec => "spec",
             Self::Design => "design",
@@ -111,17 +109,6 @@ pub fn task_context(root: &Path, task_id: DocumentId) -> Result<TaskContext, Tas
     };
 
     let mut items = Vec::new();
-    let agent_path = root.join("AGENTS.md");
-    if agent_path.is_file() {
-        items.push(TaskContextItem {
-            document_id: None,
-            kind: TaskContextItemKind::AgentInstructions,
-            title: Some("Agent Instructions".to_string()),
-            path: agent_path.clone(),
-            content: read_file(&agent_path)?,
-        });
-    }
-
     items.push(context_item(task, TaskContextItemKind::Task)?);
     append_related(
         &mut items,
@@ -279,7 +266,7 @@ fn append_related(
             TaskContextItemKind::Spec => matches_spec(metadata),
             TaskContextItemKind::Design => matches_design(metadata),
             TaskContextItemKind::Adr => matches_adr(metadata),
-            TaskContextItemKind::AgentInstructions | TaskContextItemKind::Task => false,
+            TaskContextItemKind::Task => false,
         });
         if let Some(document) = document {
             items.push(context_item(document, kind)?);

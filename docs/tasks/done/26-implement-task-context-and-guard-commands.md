@@ -26,7 +26,7 @@ Implement task-oriented read checks that support human and agent workflows.
 ## Scope
 
 - Implement `vdoc context task <id>`.
-- Include `AGENTS.md`, the task, related specs, related designs, and related ADRs.
+- Include the task, related specs, related designs, and related ADRs.
 - Implement `vdoc guard task <id>`.
 - Verify task status, dependencies, and related document existence.
 - Return JSON-friendly output.
@@ -64,3 +64,7 @@ cases, and deterministic context ordering.
 Follow-up review fix: `vdoc context task <id>` now exits non-zero when a
 referenced spec, design, or ADR cannot be resolved, instead of returning
 incomplete context successfully.
+
+Follow-up usability fix: `vdoc context task <id>` no longer includes
+`AGENTS.md`, because Codex and similar agent runners load repository agent
+instructions before task context is requested.

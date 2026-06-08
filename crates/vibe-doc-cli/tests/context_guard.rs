@@ -51,7 +51,6 @@ fn context_task_returns_related_documents_in_deterministic_order() {
     assert_eq!(
         kinds_and_ids,
         [
-            ("agent-instructions".to_string(), None),
             ("task".to_string(), Some(20)),
             ("spec".to_string(), Some(2)),
             ("spec".to_string(), Some(10)),
@@ -61,9 +60,8 @@ fn context_task_returns_related_documents_in_deterministic_order() {
             ("adr".to_string(), Some(12)),
         ]
     );
-    assert_eq!(items[0]["path"], "AGENTS.md");
-    assert_eq!(items[1]["path"], "docs/tasks/active/20-context.md");
-    assert!(items[1]["content"].as_str().unwrap().contains("Context"));
+    assert_eq!(items[0]["path"], "docs/tasks/active/20-context.md");
+    assert!(items[0]["content"].as_str().unwrap().contains("Context"));
 }
 
 #[test]

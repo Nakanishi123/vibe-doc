@@ -225,14 +225,17 @@ Recommended error codes:
 
 `vdoc context task <id>` returns the files needed to implement or review a task:
 
-- `AGENTS.md`
 - the task file
 - referenced specs
 - referenced designs
 - referenced ADRs
 
-Context output is deterministic. It orders items as agent instructions, task,
-specs by ID, designs by ID, and ADRs by ID.
+Context output is deterministic. It orders items as task, specs by ID, designs
+by ID, and ADRs by ID.
+
+Context does not include `AGENTS.md`. Agent runners such as Codex read
+repository agent instructions through their own bootstrap flow, so including it
+in task context would duplicate that input.
 
 Context exits non-zero when the task references a spec, design, or ADR that
 cannot be resolved. It must not silently omit referenced documents.

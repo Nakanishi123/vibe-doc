@@ -33,11 +33,13 @@ The first implementation should prepare context and validate readiness. Running 
 
 `vdoc context task <id>` collects the files and documents an agent needs:
 
-- `AGENTS.md`
 - the task document
 - referenced specs
 - referenced designs
 - referenced ADRs
+
+`AGENTS.md` is intentionally excluded because Codex and similar agent runners
+load repository agent instructions before command output is passed in.
 
 Future server endpoints should reuse the same core logic rather than inventing a separate context model.
 
