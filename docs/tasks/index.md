@@ -12,7 +12,6 @@ No tasks.
 
 ## Planned
 
-- 31 Build read-only task and ADR views
 - 32 Prepare controlled agent integration workflow
 
 ## Blocked
@@ -37,4 +36,5 @@ No tasks.
 - 28 Implement server document APIs
 - 29 Implement validation and task mutation APIs
 - 30 Build read-only Web UI document views
+- 31 Build read-only task and ADR views
 - 36 Implement vdoc server command and SPA serving
