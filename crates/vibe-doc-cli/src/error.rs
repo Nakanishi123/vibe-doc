@@ -111,13 +111,6 @@ fn print_task_context_error_json(error: &TaskContextError) {
                 "message": error.to_string(),
             }
         }),
-        TaskContextError::ReadFile { path, .. } => json!({
-            "error": {
-                "code": "TASK_CONTEXT_READ_FAILED",
-                "message": error.to_string(),
-                "path": path.to_string_lossy().replace('\\', "/"),
-            }
-        }),
     };
     eprintln!("{payload}");
 }

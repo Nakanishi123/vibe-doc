@@ -247,7 +247,9 @@ With `--json`, context output includes:
 - `items`
 
 Each context item includes `kind`, `path`, and `content`. Numbered documents
-also include `id` and `title`.
+also include `id` and `title`. Context `content` contains the Markdown body
+without YAML frontmatter; metadata needed for ordering and identification is
+returned through item fields instead.
 
 `vdoc guard task <id>` verifies that a task is ready to start:
 

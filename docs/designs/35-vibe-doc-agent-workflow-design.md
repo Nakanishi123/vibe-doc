@@ -68,7 +68,10 @@ Recommended order:
 4. Related designs sorted by ID.
 5. Related ADRs sorted by ID.
 
-Each context item should include its document ID when available, kind, title, path, and content or content reference depending on output mode.
+Each context item should include its document ID when available, kind, title,
+path, and content or content reference depending on output mode. Context content
+should use the parsed Markdown body and omit YAML frontmatter, because metadata
+is already represented as structured fields.
 
 ## Safety Boundaries
 

@@ -68,3 +68,7 @@ incomplete context successfully.
 Follow-up usability fix: `vdoc context task <id>` no longer includes
 `AGENTS.md`, because Codex and similar agent runners load repository agent
 instructions before task context is requested.
+
+Follow-up output cleanup: context item content now omits YAML frontmatter and
+returns only the parsed Markdown body. Metadata remains available through item
+fields such as `id`, `kind`, `title`, and `path`.

@@ -3,7 +3,6 @@ use crate::{
     RepositoryScanError, TaskStatus,
 };
 use std::collections::HashSet;
-use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
@@ -92,12 +91,6 @@ pub enum TaskContextError {
     },
     #[error(transparent)]
     RepositoryScan(#[from] RepositoryScanError),
-    #[error("failed to read {}: {source}", path.display())]
-    ReadFile {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
 }
 
 pub fn task_context(root: &Path, task_id: DocumentId) -> Result<TaskContext, TaskContextError> {
@@ -287,14 +280,7 @@ fn context_item(
         kind,
         title: Some(common.title.clone()),
         path: document.path.clone(),
-        content: read_file(&document.path)?,
-    })
-}
-
-fn read_file(path: &Path) -> Result<String, TaskContextError> {
-    fs::read_to_string(path).map_err(|source| TaskContextError::ReadFile {
-        path: path.to_path_buf(),
-        source,
+        content: document.document.body.clone(),
     })
 }
 

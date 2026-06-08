@@ -61,7 +61,9 @@ fn context_task_returns_related_documents_in_deterministic_order() {
         ]
     );
     assert_eq!(items[0]["path"], "docs/tasks/active/20-context.md");
-    assert!(items[0]["content"].as_str().unwrap().contains("Context"));
+    let task_content = items[0]["content"].as_str().unwrap();
+    assert!(task_content.contains("## Goal"));
+    assert!(!task_content.contains("kind: task"));
 }
 
 #[test]
