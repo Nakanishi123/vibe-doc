@@ -15,6 +15,7 @@ No tasks.
 - 30 Build read-only Web UI document views
 - 31 Build read-only task and ADR views
 - 32 Prepare controlled agent integration workflow
+- 36 Implement vdoc server command and SPA serving
 
 ## Blocked
 
