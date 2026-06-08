@@ -40,7 +40,6 @@ export interface DocumentSummary {
 export interface DocumentDetail extends DocumentSummary {
   frontmatter: Record<string, unknown>;
   markdown: string;
-  html?: string;
   related_ids: RelatedDocumentId[];
   related_documents: RelatedDocument[];
   validation: ValidationIssue[];
