@@ -8,6 +8,7 @@ use std::fmt;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use thiserror::Error;
 
 /// Stable validation issue code shared by CLI, server, and UI callers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -127,83 +128,29 @@ impl SchemaSet {
 }
 
 /// Error produced while reading schema files.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum SchemaLoadError {
+    #[error("failed to read schema {}: {source}", path.display())]
     ReadFile {
         path: PathBuf,
+        #[source]
         source: io::Error,
     },
+    #[error("invalid schema JSON {}: {source}", path.display())]
     InvalidJson {
         path: PathBuf,
+        #[source]
         source: serde_json::Error,
     },
 }
 
-impl fmt::Display for SchemaLoadError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ReadFile { path, source } => {
-                write!(
-                    formatter,
-                    "failed to read schema {}: {source}",
-                    path.display()
-                )
-            }
-            Self::InvalidJson { path, source } => {
-                write!(
-                    formatter,
-                    "invalid schema JSON {}: {source}",
-                    path.display()
-                )
-            }
-        }
-    }
-}
-
-impl std::error::Error for SchemaLoadError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::ReadFile { source, .. } => Some(source),
-            Self::InvalidJson { source, .. } => Some(source),
-        }
-    }
-}
-
 /// Error produced while running repository validation.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ValidationRunError {
-    Schema(SchemaLoadError),
-    RepositoryScan(RepositoryScanError),
-}
-
-impl fmt::Display for ValidationRunError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Schema(error) => error.fmt(formatter),
-            Self::RepositoryScan(error) => error.fmt(formatter),
-        }
-    }
-}
-
-impl std::error::Error for ValidationRunError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Schema(error) => Some(error),
-            Self::RepositoryScan(error) => Some(error),
-        }
-    }
-}
-
-impl From<SchemaLoadError> for ValidationRunError {
-    fn from(value: SchemaLoadError) -> Self {
-        Self::Schema(value)
-    }
-}
-
-impl From<RepositoryScanError> for ValidationRunError {
-    fn from(value: RepositoryScanError) -> Self {
-        Self::RepositoryScan(value)
-    }
+    #[error(transparent)]
+    Schema(#[from] SchemaLoadError),
+    #[error(transparent)]
+    RepositoryScan(#[from] RepositoryScanError),
 }
 
 /// Load repository JSON Schema files from `docs/schemas/`.

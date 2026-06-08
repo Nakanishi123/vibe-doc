@@ -1,8 +1,8 @@
 use crate::{scan_repository, DocumentId, DocumentMetadata, RepositoryDocument, TaskStatus};
-use std::fmt;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use thiserror::Error;
 
 /// Options for rebuilding the task index.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -35,44 +35,24 @@ impl TaskIndexRebuildAction {
 }
 
 /// Error produced while rebuilding the task index.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum TaskIndexRebuildError {
-    RepositoryScan(crate::RepositoryScanError),
+    #[error(transparent)]
+    RepositoryScan(#[from] crate::RepositoryScanError),
+    #[error("task index document was not found")]
     MissingTaskIndex,
-    ReadFile { path: PathBuf, source: io::Error },
-    WriteFile { path: PathBuf, source: io::Error },
-}
-
-impl fmt::Display for TaskIndexRebuildError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::RepositoryScan(error) => error.fmt(formatter),
-            Self::MissingTaskIndex => formatter.write_str("task index document was not found"),
-            Self::ReadFile { path, source } => {
-                write!(formatter, "failed to read {}: {source}", path.display())
-            }
-            Self::WriteFile { path, source } => {
-                write!(formatter, "failed to write {}: {source}", path.display())
-            }
-        }
-    }
-}
-
-impl std::error::Error for TaskIndexRebuildError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::RepositoryScan(error) => Some(error),
-            Self::MissingTaskIndex => None,
-            Self::ReadFile { source, .. } => Some(source),
-            Self::WriteFile { source, .. } => Some(source),
-        }
-    }
-}
-
-impl From<crate::RepositoryScanError> for TaskIndexRebuildError {
-    fn from(error: crate::RepositoryScanError) -> Self {
-        Self::RepositoryScan(error)
-    }
+    #[error("failed to read {}: {source}", path.display())]
+    ReadFile {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("failed to write {}: {source}", path.display())]
+    WriteFile {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
 }
 
 /// Rebuild docs/tasks/index.md from task frontmatter.

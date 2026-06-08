@@ -4,10 +4,10 @@ use crate::{
     DocumentId, DocumentMetadata, RepositoryDocument, SourceId, TaskStatus, ValidationIssue,
 };
 use serde_yaml::{Mapping, Value};
-use std::fmt;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use thiserror::Error;
 
 /// Options for task lifecycle mutations.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -58,151 +58,66 @@ impl TaskLifecycleAction {
 }
 
 /// Error produced while planning or applying a task lifecycle mutation.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum TaskLifecycleError {
-    RepositoryScan(crate::RepositoryScanError),
-    TaskNotFound {
-        id: DocumentId,
-    },
+    #[error(transparent)]
+    RepositoryScan(#[from] crate::RepositoryScanError),
+    #[error("task {} was not found", id.get())]
+    TaskNotFound { id: DocumentId },
+    #[error("task {} has status {}; expected {expected}", id.get(), task_status_str(*status))]
     InvalidTaskStatus {
         id: DocumentId,
         status: TaskStatus,
         expected: &'static str,
     },
-    InvalidTaskLocation {
-        path: PathBuf,
-    },
-    DestinationExists {
-        path: PathBuf,
-    },
+    #[error("task is not in a valid lifecycle path: {}", path.display())]
+    InvalidTaskLocation { path: PathBuf },
+    #[error("destination task file already exists: {}", path.display())]
+    DestinationExists { path: PathBuf },
+    #[error("failed to read {}: {source}", path.display())]
     ReadFile {
         path: PathBuf,
+        #[source]
         source: io::Error,
     },
+    #[error("failed to create directory {}: {source}", path.display())]
     CreateDir {
         path: PathBuf,
+        #[source]
         source: io::Error,
     },
+    #[error("failed to write {}: {source}", path.display())]
     WriteFile {
         path: PathBuf,
+        #[source]
         source: io::Error,
     },
+    #[error("failed to delete {}: {source}", path.display())]
     DeleteFile {
         path: PathBuf,
+        #[source]
         source: io::Error,
     },
-    FrontmatterParse(serde_yaml::Error),
+    #[error("failed to parse task frontmatter: {0}")]
+    FrontmatterParse(#[source] serde_yaml::Error),
+    #[error("task frontmatter must be a mapping")]
     FrontmatterNotMapping,
-    FrontmatterSerialize(serde_yaml::Error),
-    Parse(crate::ParseError),
+    #[error("failed to serialize task frontmatter: {0}")]
+    FrontmatterSerialize(#[source] serde_yaml::Error),
+    #[error("updated task document is invalid: {0}")]
+    Parse(#[from] crate::ParseError),
+    #[error("task lifecycle mutation failed validation:\n{}", format_validation_issues(.0))]
     Validation(Vec<ValidationIssue>),
-    ValidationRun(crate::ValidationRunError),
+    #[error(transparent)]
+    ValidationRun(#[from] crate::ValidationRunError),
 }
 
-impl fmt::Display for TaskLifecycleError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::RepositoryScan(error) => error.fmt(formatter),
-            Self::TaskNotFound { id } => write!(formatter, "task {} was not found", id.get()),
-            Self::InvalidTaskStatus {
-                id,
-                status,
-                expected,
-            } => write!(
-                formatter,
-                "task {} has status {}; expected {expected}",
-                id.get(),
-                task_status_str(*status)
-            ),
-            Self::InvalidTaskLocation { path } => {
-                write!(
-                    formatter,
-                    "task is not in a valid lifecycle path: {}",
-                    path.display()
-                )
-            }
-            Self::DestinationExists { path } => {
-                write!(
-                    formatter,
-                    "destination task file already exists: {}",
-                    path.display()
-                )
-            }
-            Self::ReadFile { path, source } => {
-                write!(formatter, "failed to read {}: {source}", path.display())
-            }
-            Self::CreateDir { path, source } => {
-                write!(
-                    formatter,
-                    "failed to create directory {}: {source}",
-                    path.display()
-                )
-            }
-            Self::WriteFile { path, source } => {
-                write!(formatter, "failed to write {}: {source}", path.display())
-            }
-            Self::DeleteFile { path, source } => {
-                write!(formatter, "failed to delete {}: {source}", path.display())
-            }
-            Self::FrontmatterParse(error) => {
-                write!(formatter, "failed to parse task frontmatter: {error}")
-            }
-            Self::FrontmatterNotMapping => {
-                formatter.write_str("task frontmatter must be a mapping")
-            }
-            Self::FrontmatterSerialize(error) => {
-                write!(formatter, "failed to serialize task frontmatter: {error}")
-            }
-            Self::Parse(error) => write!(formatter, "updated task document is invalid: {error}"),
-            Self::Validation(issues) => {
-                writeln!(formatter, "task lifecycle mutation failed validation:")?;
-                for issue in issues {
-                    writeln!(formatter, "- {}", issue.message)?;
-                }
-                Ok(())
-            }
-            Self::ValidationRun(error) => error.fmt(formatter),
-        }
-    }
-}
-
-impl std::error::Error for TaskLifecycleError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::RepositoryScan(error) => Some(error),
-            Self::ReadFile { source, .. }
-            | Self::CreateDir { source, .. }
-            | Self::WriteFile { source, .. }
-            | Self::DeleteFile { source, .. } => Some(source),
-            Self::FrontmatterParse(error) | Self::FrontmatterSerialize(error) => Some(error),
-            Self::Parse(error) => Some(error),
-            Self::ValidationRun(error) => Some(error),
-            Self::TaskNotFound { .. }
-            | Self::InvalidTaskStatus { .. }
-            | Self::InvalidTaskLocation { .. }
-            | Self::DestinationExists { .. }
-            | Self::FrontmatterNotMapping
-            | Self::Validation(_) => None,
-        }
-    }
-}
-
-impl From<crate::RepositoryScanError> for TaskLifecycleError {
-    fn from(error: crate::RepositoryScanError) -> Self {
-        Self::RepositoryScan(error)
-    }
-}
-
-impl From<crate::ParseError> for TaskLifecycleError {
-    fn from(error: crate::ParseError) -> Self {
-        Self::Parse(error)
-    }
-}
-
-impl From<crate::ValidationRunError> for TaskLifecycleError {
-    fn from(error: crate::ValidationRunError) -> Self {
-        Self::ValidationRun(error)
-    }
+fn format_validation_issues(issues: &[ValidationIssue]) -> String {
+    issues
+        .iter()
+        .map(|issue| format!("- {}", issue.message))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Start a planned or blocked task by setting status to `doing`.

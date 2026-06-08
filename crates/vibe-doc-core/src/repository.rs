@@ -1,8 +1,8 @@
 use crate::{parse_numbered_document, DocumentKind, NumberedDocument, ParseError, SourceId};
-use std::fmt;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use thiserror::Error;
 
 /// A numbered document discovered in the supported repository layout.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -13,49 +13,22 @@ pub struct RepositoryDocument {
 }
 
 /// Error produced while scanning a vibe-doc repository.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum RepositoryScanError {
-    ReadDir { path: PathBuf, source: io::Error },
-    ReadFile { path: PathBuf, source: io::Error },
-    Parse(ParseError),
-}
-
-impl fmt::Display for RepositoryScanError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ReadDir { path, source } => {
-                write!(
-                    formatter,
-                    "failed to read directory {}: {source}",
-                    path.display()
-                )
-            }
-            Self::ReadFile { path, source } => {
-                write!(
-                    formatter,
-                    "failed to read file {}: {source}",
-                    path.display()
-                )
-            }
-            Self::Parse(error) => error.fmt(formatter),
-        }
-    }
-}
-
-impl std::error::Error for RepositoryScanError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::ReadDir { source, .. } => Some(source),
-            Self::ReadFile { source, .. } => Some(source),
-            Self::Parse(error) => Some(error),
-        }
-    }
-}
-
-impl From<ParseError> for RepositoryScanError {
-    fn from(value: ParseError) -> Self {
-        Self::Parse(value)
-    }
+    #[error("failed to read directory {}: {source}", path.display())]
+    ReadDir {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("failed to read file {}: {source}", path.display())]
+    ReadFile {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error(transparent)]
+    Parse(#[from] ParseError),
 }
 
 /// Scan supported docs locations and return numbered documents sorted by path.

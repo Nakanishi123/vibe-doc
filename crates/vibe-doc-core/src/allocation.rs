@@ -1,7 +1,7 @@
 use crate::{scan_repository, DocumentId, RepositoryDocument, RepositoryScanError};
 use std::collections::BTreeMap;
-use std::fmt;
 use std::path::PathBuf;
+use thiserror::Error;
 
 /// Supported document locations for generated repository-relative paths.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,43 +22,23 @@ pub struct DuplicateDocumentId {
 }
 
 /// Error produced while allocating the next global document ID.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum IdAllocationError {
-    RepositoryScan(RepositoryScanError),
+    #[error(transparent)]
+    RepositoryScan(#[from] RepositoryScanError),
+    #[error("duplicate document IDs found{}", format_duplicate_ids(.0))]
     DuplicateIds(Vec<DuplicateDocumentId>),
 }
 
-impl fmt::Display for IdAllocationError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::RepositoryScan(error) => error.fmt(formatter),
-            Self::DuplicateIds(duplicates) => {
-                write!(formatter, "duplicate document IDs found")?;
-                for duplicate in duplicates {
-                    write!(formatter, ": {}", duplicate.id.get())?;
-                    for path in &duplicate.paths {
-                        write!(formatter, " {}", path.display())?;
-                    }
-                }
-                Ok(())
-            }
+fn format_duplicate_ids(duplicates: &[DuplicateDocumentId]) -> String {
+    let mut message = String::new();
+    for duplicate in duplicates {
+        message.push_str(&format!(": {}", duplicate.id.get()));
+        for path in &duplicate.paths {
+            message.push_str(&format!(" {}", path.display()));
         }
     }
-}
-
-impl std::error::Error for IdAllocationError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::RepositoryScan(error) => Some(error),
-            Self::DuplicateIds(_) => None,
-        }
-    }
-}
-
-impl From<RepositoryScanError> for IdAllocationError {
-    fn from(value: RepositoryScanError) -> Self {
-        Self::RepositoryScan(value)
-    }
+    message
 }
 
 /// Scan a repository and return the next available positive global document ID.

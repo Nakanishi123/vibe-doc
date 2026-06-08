@@ -8,10 +8,10 @@ use crate::{
     AdrStatus, DocumentId, DocumentKind, Priority, RepositoryDocument, SourceId, TaskType,
 };
 use serde::Serialize;
-use std::fmt;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use thiserror::Error;
 
 /// Options for creating a new document.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -71,75 +71,32 @@ impl NewChangeAction {
 }
 
 /// Error produced while planning or creating a new document.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum NewError {
+    #[error("new document would overwrite existing file: {}", path.display())]
     Conflict { path: PathBuf },
-    CreateDir { path: PathBuf, source: io::Error },
-    WriteFile { path: PathBuf, source: io::Error },
-    Allocation(IdAllocationError),
-    Schema(SchemaLoadError),
-    FrontmatterSerialize(serde_yaml::Error),
-    Parse(ParseError),
+    #[error("failed to create directory {}: {source}", path.display())]
+    CreateDir {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("failed to write file {}: {source}", path.display())]
+    WriteFile {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error(transparent)]
+    Allocation(#[from] IdAllocationError),
+    #[error(transparent)]
+    Schema(#[from] SchemaLoadError),
+    #[error("failed to serialize generated frontmatter: {0}")]
+    FrontmatterSerialize(#[source] serde_yaml::Error),
+    #[error("generated document is invalid: {0}")]
+    Parse(#[from] ParseError),
+    #[error("generated document failed validation:\n{}", format_new_validation_issues(.0))]
     Validation(Vec<String>),
-}
-
-impl fmt::Display for NewError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Conflict { path } => write!(
-                formatter,
-                "new document would overwrite existing file: {}",
-                path.display()
-            ),
-            Self::CreateDir { path, source } => write!(
-                formatter,
-                "failed to create directory {}: {source}",
-                path.display()
-            ),
-            Self::WriteFile { path, source } => write!(
-                formatter,
-                "failed to write file {}: {source}",
-                path.display()
-            ),
-            Self::Allocation(error) => error.fmt(formatter),
-            Self::Schema(error) => error.fmt(formatter),
-            Self::FrontmatterSerialize(error) => {
-                write!(
-                    formatter,
-                    "failed to serialize generated frontmatter: {error}"
-                )
-            }
-            Self::Parse(error) => write!(formatter, "generated document is invalid: {error}"),
-            Self::Validation(issues) => {
-                writeln!(formatter, "generated document failed validation:")?;
-                for issue in issues {
-                    writeln!(formatter, "- {}", issue)?;
-                }
-                Ok(())
-            }
-        }
-    }
-}
-
-impl std::error::Error for NewError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Conflict { .. } => None,
-            Self::CreateDir { source, .. } => Some(source),
-            Self::WriteFile { source, .. } => Some(source),
-            Self::Allocation(error) => Some(error),
-            Self::Schema(error) => Some(error),
-            Self::FrontmatterSerialize(error) => Some(error),
-            Self::Parse(error) => Some(error),
-            Self::Validation(_) => None,
-        }
-    }
-}
-
-impl From<IdAllocationError> for NewError {
-    fn from(value: IdAllocationError) -> Self {
-        Self::Allocation(value)
-    }
 }
 
 impl From<RepositoryScanError> for NewError {
@@ -148,16 +105,12 @@ impl From<RepositoryScanError> for NewError {
     }
 }
 
-impl From<SchemaLoadError> for NewError {
-    fn from(value: SchemaLoadError) -> Self {
-        Self::Schema(value)
-    }
-}
-
-impl From<ParseError> for NewError {
-    fn from(value: ParseError) -> Self {
-        Self::Parse(value)
-    }
+fn format_new_validation_issues(issues: &[String]) -> String {
+    issues
+        .iter()
+        .map(|issue| format!("- {issue}"))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 pub fn new_spec(

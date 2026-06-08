@@ -1,7 +1,7 @@
-use std::fmt;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use thiserror::Error;
 
 /// Options for creating the initial vibe-doc documentation layout.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -59,53 +59,22 @@ pub struct InitPlan {
 }
 
 /// Error produced while planning or applying `vdoc init`.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum InitError {
+    #[error("init would overwrite existing files: {}", paths.iter().map(|path| path.display().to_string()).collect::<Vec<_>>().join(", "))]
     Conflicts { paths: Vec<PathBuf> },
-    CreateDir { path: PathBuf, source: io::Error },
-    WriteFile { path: PathBuf, source: io::Error },
-}
-
-impl fmt::Display for InitError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Conflicts { paths } => {
-                write!(
-                    formatter,
-                    "init would overwrite existing files: {}",
-                    paths
-                        .iter()
-                        .map(|path| path.display().to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
-            }
-            Self::CreateDir { path, source } => {
-                write!(
-                    formatter,
-                    "failed to create directory {}: {source}",
-                    path.display()
-                )
-            }
-            Self::WriteFile { path, source } => {
-                write!(
-                    formatter,
-                    "failed to write file {}: {source}",
-                    path.display()
-                )
-            }
-        }
-    }
-}
-
-impl std::error::Error for InitError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Conflicts { .. } => None,
-            Self::CreateDir { source, .. } => Some(source),
-            Self::WriteFile { source, .. } => Some(source),
-        }
-    }
+    #[error("failed to create directory {}: {source}", path.display())]
+    CreateDir {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("failed to write file {}: {source}", path.display())]
+    WriteFile {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
 }
 
 /// Create the initial vibe-doc documentation layout under `root`.

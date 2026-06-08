@@ -5,6 +5,7 @@ use crate::{
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TaskContext {
@@ -82,43 +83,24 @@ impl TaskGuardCode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum TaskContextError {
-    TaskNotFound {
-        id: DocumentId,
-    },
+    #[error("task {} was not found", id.get())]
+    TaskNotFound { id: DocumentId },
+    #[error("related {} {} was not found", kind.as_str(), id.get())]
     MissingRelatedDocument {
         id: DocumentId,
         kind: TaskContextItemKind,
     },
-    RepositoryScan(RepositoryScanError),
+    #[error(transparent)]
+    RepositoryScan(#[from] RepositoryScanError),
+    #[error("failed to read {}: {source}", path.display())]
     ReadFile {
         path: PathBuf,
+        #[source]
         source: std::io::Error,
     },
 }
-
-impl std::fmt::Display for TaskContextError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::TaskNotFound { id } => write!(formatter, "task {} was not found", id.get()),
-            Self::MissingRelatedDocument { id, kind } => {
-                write!(
-                    formatter,
-                    "related {} {} was not found",
-                    kind.as_str(),
-                    id.get()
-                )
-            }
-            Self::RepositoryScan(error) => error.fmt(formatter),
-            Self::ReadFile { path, source } => {
-                write!(formatter, "failed to read {}: {source}", path.display())
-            }
-        }
-    }
-}
-
-impl std::error::Error for TaskContextError {}
 
 pub fn task_context(root: &Path, task_id: DocumentId) -> Result<TaskContext, TaskContextError> {
     let documents = scan_repository(root).map_err(TaskContextError::RepositoryScan)?;
