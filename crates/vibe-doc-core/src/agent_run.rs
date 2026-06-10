@@ -4,10 +4,12 @@ use crate::{
 };
 use chrono::{SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::io;
+use std::fs::{self, File};
+use std::io::{self, Read, Write};
 use std::path::{Component, Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, ExitStatus, Stdio};
+use std::sync::mpsc;
+use std::thread;
 use thiserror::Error;
 
 pub const VDOC_DIR: &str = ".vdoc";
@@ -19,6 +21,7 @@ pub const EVENTS_FILE: &str = "events.ndjson";
 pub const TERMINAL_LOG_FILE: &str = "terminal.log";
 pub const DIFF_FILE: &str = "diff.patch";
 pub const REVIEW_FILE: &str = "review.md";
+const AGENT_OUTPUT_CHANNEL_BOUND: usize = 64;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentRun {
@@ -104,6 +107,37 @@ pub struct PreparedAgentRun {
     pub prompt: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AgentCommand {
+    pub name: String,
+    pub agent_kind: String,
+    pub program: String,
+    pub args: Vec<String>,
+    pub prompt_stdin: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AgentRunExecution {
+    pub run: AgentRun,
+    pub terminal_log: String,
+    pub diff: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "event", rename_all = "kebab-case")]
+pub enum AgentRunStreamEvent {
+    Terminal {
+        data: String,
+    },
+    Error {
+        message: String,
+    },
+    Completed {
+        status: AgentRunStatus,
+        exit_result: Option<AgentRunExitResult>,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentRunEvent {
     pub event: String,
@@ -163,6 +197,26 @@ pub enum AgentRunStorageError {
     WorktreePathExists { path: PathBuf },
     #[error("git worktree command failed: {message}")]
     GitWorktree { message: String },
+    #[error("agent command `{command}` is not supported for run `{run_id}`")]
+    UnsupportedAgentCommand { run_id: String, command: String },
+    #[error("agent run `{run_id}` does not have an execution worktree")]
+    MissingWorktree { run_id: String },
+    #[error("failed to spawn agent command `{command}`: {source}")]
+    SpawnAgentCommand {
+        command: String,
+        #[source]
+        source: io::Error,
+    },
+    #[error("failed while reading agent command output: {0}")]
+    ReadAgentOutput(#[source] io::Error),
+    #[error("failed while writing agent command input: {0}")]
+    WriteAgentInput(#[source] io::Error),
+    #[error("agent command input writer panicked")]
+    AgentInputWriterPanicked,
+    #[error("agent command output reader panicked")]
+    AgentOutputReaderPanicked,
+    #[error("failed to capture agent run diff: {message}")]
+    CaptureDiff { message: String },
 }
 
 pub fn find_repository_root(start: impl AsRef<Path>) -> Result<PathBuf, AgentRunStorageError> {
@@ -496,6 +550,393 @@ pub fn cleanup_agent_run_worktree(
     run.worktree_path = None;
     run.updated_at = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
     write_agent_run_metadata(run)
+}
+
+pub fn execute_agent_run<F>(
+    root: impl AsRef<Path>,
+    run_id: impl AsRef<str>,
+    command: &AgentCommand,
+    mut on_stream_event: F,
+) -> Result<AgentRunExecution, AgentRunStorageError>
+where
+    F: FnMut(&AgentRunStreamEvent),
+{
+    let root = root.as_ref();
+    let mut run = preflight_agent_run_execution(root, run_id, command)?;
+
+    if run.worktree_path.is_none() {
+        create_agent_run_worktree(root, &mut run)?;
+    }
+    let worktree_path =
+        run.worktree_path
+            .clone()
+            .ok_or_else(|| AgentRunStorageError::MissingWorktree {
+                run_id: run.run_id.clone(),
+            })?;
+    let worktree_path = validate_agent_worktree_path(root, worktree_path)?;
+
+    transition_agent_run(&mut run, AgentRunStatus::Running, "started")?;
+
+    let mut terminal_log = File::options()
+        .create(true)
+        .append(true)
+        .open(&run.artifacts.terminal_log)
+        .map_err(|source| AgentRunStorageError::WriteFile {
+            path: run.artifacts.terminal_log.clone(),
+            source,
+        })?;
+
+    let command_result = run_agent_process(
+        command,
+        &worktree_path,
+        &run.artifacts.prompt,
+        &run.artifacts.terminal_log,
+        &mut terminal_log,
+        &mut on_stream_event,
+    );
+
+    let exit_result = match command_result {
+        Ok(exit_result) => exit_result,
+        Err(error) => return fail_agent_run(&mut run, error),
+    };
+
+    run.exit_result = Some(exit_result.clone());
+    let final_status = if exit_result.code == Some(0) {
+        AgentRunStatus::Succeeded
+    } else {
+        AgentRunStatus::Failed
+    };
+
+    let diff = match capture_agent_run_diff(&worktree_path) {
+        Ok(diff) => diff,
+        Err(error) => return fail_agent_run(&mut run, error),
+    };
+    fs::write(&run.artifacts.diff, &diff).map_err(|source| AgentRunStorageError::WriteFile {
+        path: run.artifacts.diff.clone(),
+        source,
+    })?;
+    transition_agent_run(&mut run, final_status, final_status.as_str())?;
+
+    let terminal_log_content =
+        fs::read_to_string(&run.artifacts.terminal_log).map_err(|source| {
+            AgentRunStorageError::ReadFile {
+                path: run.artifacts.terminal_log.clone(),
+                source,
+            }
+        })?;
+
+    Ok(AgentRunExecution {
+        run,
+        terminal_log: terminal_log_content,
+        diff,
+    })
+}
+
+pub fn preflight_agent_run_execution(
+    root: impl AsRef<Path>,
+    run_id: impl AsRef<str>,
+    command: &AgentCommand,
+) -> Result<AgentRun, AgentRunStorageError> {
+    let run = read_agent_run_metadata(root, run_id)?;
+
+    if run.status != AgentRunStatus::PromptApproved {
+        return Err(AgentRunStorageError::InvalidRunStatus {
+            run_id: run.run_id,
+            status: run.status,
+            expected: AgentRunStatus::PromptApproved.as_str(),
+        });
+    }
+
+    if command.agent_kind != run.agent_kind {
+        return Err(AgentRunStorageError::UnsupportedAgentCommand {
+            run_id: run.run_id,
+            command: command.name.clone(),
+        });
+    }
+
+    Ok(run)
+}
+
+fn transition_agent_run(
+    run: &mut AgentRun,
+    status: AgentRunStatus,
+    event_name: impl Into<String>,
+) -> Result<(), AgentRunStorageError> {
+    let now = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
+    run.status = status;
+    run.updated_at = now.clone();
+    let event = AgentRunEvent {
+        event: event_name.into(),
+        run_id: run.run_id.clone(),
+        task_id: run.task_id,
+        status: run.status,
+        created_at: now,
+    };
+    append_agent_run_event(run, &event)?;
+    write_agent_run_metadata(run)
+}
+
+fn fail_agent_run<T>(
+    run: &mut AgentRun,
+    error: AgentRunStorageError,
+) -> Result<T, AgentRunStorageError> {
+    let now = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
+    let event = AgentRunEvent {
+        event: format!("error: {error}"),
+        run_id: run.run_id.clone(),
+        task_id: run.task_id,
+        status: AgentRunStatus::Failed,
+        created_at: now,
+    };
+    append_agent_run_event(run, &event)?;
+    run.status = AgentRunStatus::Failed;
+    run.updated_at = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
+    write_agent_run_metadata(run)?;
+    Err(error)
+}
+
+fn run_agent_process<F>(
+    command: &AgentCommand,
+    worktree_path: &Path,
+    prompt_path: &Path,
+    terminal_log_path: &Path,
+    terminal_log: &mut File,
+    on_stream_event: &mut F,
+) -> Result<AgentRunExitResult, AgentRunStorageError>
+where
+    F: FnMut(&AgentRunStreamEvent),
+{
+    let prompt = if command.prompt_stdin {
+        Some(
+            fs::read(prompt_path).map_err(|source| AgentRunStorageError::ReadFile {
+                path: prompt_path.to_path_buf(),
+                source,
+            })?,
+        )
+    } else {
+        None
+    };
+
+    let mut child = Command::new(&command.program)
+        .args(&command.args)
+        .current_dir(worktree_path)
+        .stdin(if command.prompt_stdin {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|source| AgentRunStorageError::SpawnAgentCommand {
+            command: command.name.clone(),
+            source,
+        })?;
+
+    let (sender, receiver) = mpsc::sync_channel(AGENT_OUTPUT_CHANNEL_BOUND);
+    let mut readers = Vec::new();
+
+    if let Some(stdout) = child.stdout.take() {
+        readers.push(spawn_output_reader(stdout, sender.clone()));
+    }
+    if let Some(stderr) = child.stderr.take() {
+        readers.push(spawn_output_reader(stderr, sender.clone()));
+    }
+    drop(sender);
+
+    let input_writer = match (prompt, child.stdin.take()) {
+        (Some(prompt), Some(stdin)) => Some(spawn_input_writer(stdin, prompt)),
+        _ => None,
+    };
+    let mut utf8_decoder = Utf8StreamDecoder::default();
+
+    for chunk in receiver {
+        terminal_log
+            .write_all(&chunk)
+            .map_err(|source| AgentRunStorageError::WriteFile {
+                path: terminal_log_path.to_path_buf(),
+                source,
+            })?;
+        utf8_decoder.push(&chunk, on_stream_event);
+    }
+    utf8_decoder.finish(on_stream_event);
+
+    for reader in readers {
+        match reader.join() {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => return Err(AgentRunStorageError::ReadAgentOutput(error)),
+            Err(_) => return Err(AgentRunStorageError::AgentOutputReaderPanicked),
+        }
+    }
+    if let Some(input_writer) = input_writer {
+        match input_writer.join() {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => return Err(AgentRunStorageError::WriteAgentInput(error)),
+            Err(_) => return Err(AgentRunStorageError::AgentInputWriterPanicked),
+        }
+    }
+
+    let status = child
+        .wait()
+        .map_err(AgentRunStorageError::ReadAgentOutput)?;
+    Ok(AgentRunExitResult {
+        code: status.code(),
+        signal: exit_signal(&status),
+    })
+}
+
+fn spawn_input_writer(
+    mut stdin: std::process::ChildStdin,
+    prompt: Vec<u8>,
+) -> thread::JoinHandle<io::Result<()>> {
+    thread::spawn(move || stdin.write_all(&prompt))
+}
+
+fn spawn_output_reader<R>(
+    mut reader: R,
+    sender: mpsc::SyncSender<Vec<u8>>,
+) -> thread::JoinHandle<io::Result<()>>
+where
+    R: Read + Send + 'static,
+{
+    thread::spawn(move || {
+        let mut buffer = [0; 8192];
+        loop {
+            let read = reader.read(&mut buffer)?;
+            if read == 0 {
+                break;
+            }
+            if sender.send(buffer[..read].to_vec()).is_err() {
+                break;
+            }
+        }
+        Ok(())
+    })
+}
+
+#[derive(Default)]
+struct Utf8StreamDecoder {
+    pending: Vec<u8>,
+}
+
+impl Utf8StreamDecoder {
+    fn push<F>(&mut self, chunk: &[u8], on_stream_event: &mut F)
+    where
+        F: FnMut(&AgentRunStreamEvent),
+    {
+        self.pending.extend_from_slice(chunk);
+        self.emit_complete_chunks(on_stream_event);
+    }
+
+    fn finish<F>(&mut self, on_stream_event: &mut F)
+    where
+        F: FnMut(&AgentRunStreamEvent),
+    {
+        if self.pending.is_empty() {
+            return;
+        }
+        let data = String::from_utf8_lossy(&self.pending).into_owned();
+        self.pending.clear();
+        emit_terminal_event(data, on_stream_event);
+    }
+
+    fn emit_complete_chunks<F>(&mut self, on_stream_event: &mut F)
+    where
+        F: FnMut(&AgentRunStreamEvent),
+    {
+        loop {
+            match std::str::from_utf8(&self.pending) {
+                Ok(data) => {
+                    if !data.is_empty() {
+                        emit_terminal_event(data.to_owned(), on_stream_event);
+                    }
+                    self.pending.clear();
+                    break;
+                }
+                Err(error) => {
+                    let valid_up_to = error.valid_up_to();
+                    if valid_up_to > 0 {
+                        let data =
+                            String::from_utf8_lossy(&self.pending[..valid_up_to]).into_owned();
+                        self.pending.drain(..valid_up_to);
+                        emit_terminal_event(data, on_stream_event);
+                    }
+
+                    match error.error_len() {
+                        Some(error_len) => {
+                            let data =
+                                String::from_utf8_lossy(&self.pending[..error_len]).into_owned();
+                            self.pending.drain(..error_len);
+                            emit_terminal_event(data, on_stream_event);
+                        }
+                        None => break,
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn emit_terminal_event<F>(data: String, on_stream_event: &mut F)
+where
+    F: FnMut(&AgentRunStreamEvent),
+{
+    if !data.is_empty() {
+        on_stream_event(&AgentRunStreamEvent::Terminal { data });
+    }
+}
+
+#[cfg(unix)]
+fn exit_signal(status: &ExitStatus) -> Option<String> {
+    use std::os::unix::process::ExitStatusExt;
+
+    status.signal().map(|signal| signal.to_string())
+}
+
+#[cfg(not(unix))]
+fn exit_signal(_status: &ExitStatus) -> Option<String> {
+    None
+}
+
+fn capture_agent_run_diff(worktree_path: &Path) -> Result<String, AgentRunStorageError> {
+    let add_intent = Command::new("git")
+        .arg("-C")
+        .arg(worktree_path)
+        .args(["add", "-N", "--", "."])
+        .output()
+        .map_err(|source| AgentRunStorageError::CaptureDiff {
+            message: source.to_string(),
+        })?;
+    if !add_intent.status.success() {
+        return Err(AgentRunStorageError::CaptureDiff {
+            message: command_output_message(&add_intent),
+        });
+    }
+
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(worktree_path)
+        .args(["diff", "--binary"])
+        .output()
+        .map_err(|source| AgentRunStorageError::CaptureDiff {
+            message: source.to_string(),
+        })?;
+    if !output.status.success() {
+        return Err(AgentRunStorageError::CaptureDiff {
+            message: command_output_message(&output),
+        });
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+fn command_output_message(output: &std::process::Output) -> String {
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if stderr.trim().is_empty() {
+        String::from_utf8_lossy(&output.stdout).trim().to_owned()
+    } else {
+        stderr.trim().to_owned()
+    }
 }
 
 fn run_git_worktree<const N: usize>(
@@ -927,6 +1368,184 @@ depends_on: []
         let raw = fs::read_to_string(&run.artifacts.run_json).unwrap();
         let saved: AgentRun = serde_json::from_str(&raw).unwrap();
         assert_eq!(saved.worktree_path, None);
+    }
+
+    #[test]
+    fn executes_approved_agent_run_and_captures_logs_and_diff() {
+        let repo = TestRepo::new("execute");
+        repo.seed_ready_task();
+        repo.init_git();
+        let prepared = prepare_agent_run(
+            repo.path(),
+            PrepareAgentRunOptions {
+                task_id: DocumentId::new(39).unwrap(),
+                agent_kind: "fixture".to_owned(),
+            },
+        )
+        .unwrap();
+        approve_agent_run_prompt(repo.path(), &prepared.run.run_id).unwrap();
+        let command = AgentCommand {
+            name: "fixture".to_owned(),
+            agent_kind: "fixture".to_owned(),
+            program: "sh".to_owned(),
+            args: vec![
+                "-c".to_owned(),
+                "printf 'hello stdout\\n'; printf 'hello stderr\\n' >&2; printf 'changed\\n' > agent-output.txt"
+                    .to_owned(),
+            ],
+            prompt_stdin: false,
+        };
+        let mut streamed = Vec::new();
+
+        let execution = execute_agent_run(repo.path(), &prepared.run.run_id, &command, |event| {
+            streamed.push(event.clone());
+        })
+        .unwrap();
+
+        assert_eq!(execution.run.status, AgentRunStatus::Succeeded);
+        assert_eq!(
+            execution.run.exit_result,
+            Some(AgentRunExitResult {
+                code: Some(0),
+                signal: None,
+            })
+        );
+        assert!(execution.run.worktree_path.as_ref().unwrap().is_dir());
+        assert!(execution.terminal_log.contains("hello stdout"));
+        assert!(execution.terminal_log.contains("hello stderr"));
+        assert_eq!(
+            fs::read_to_string(&execution.run.artifacts.terminal_log).unwrap(),
+            execution.terminal_log
+        );
+        assert!(streamed.iter().any(|event| matches!(
+            event,
+            AgentRunStreamEvent::Terminal { data } if data.contains("hello stdout")
+        )));
+        assert!(execution.diff.contains("agent-output.txt"));
+        assert!(execution.diff.contains("+changed"));
+        assert_eq!(
+            fs::read_to_string(&execution.run.artifacts.diff).unwrap(),
+            execution.diff
+        );
+        let events = fs::read_to_string(&execution.run.artifacts.events).unwrap();
+        assert!(events.contains("\"event\":\"started\""));
+        assert!(events.contains("\"event\":\"succeeded\""));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn records_signal_exit_results_on_unix() {
+        let repo = TestRepo::new("execute-signal");
+        repo.seed_ready_task();
+        repo.init_git();
+        let prepared = prepare_agent_run(
+            repo.path(),
+            PrepareAgentRunOptions {
+                task_id: DocumentId::new(39).unwrap(),
+                agent_kind: "fixture".to_owned(),
+            },
+        )
+        .unwrap();
+        approve_agent_run_prompt(repo.path(), &prepared.run.run_id).unwrap();
+        let command = AgentCommand {
+            name: "fixture".to_owned(),
+            agent_kind: "fixture".to_owned(),
+            program: "sh".to_owned(),
+            args: vec!["-c".to_owned(), "kill -TERM $$".to_owned()],
+            prompt_stdin: false,
+        };
+
+        let execution =
+            execute_agent_run(repo.path(), &prepared.run.run_id, &command, |_| {}).unwrap();
+
+        assert_eq!(execution.run.status, AgentRunStatus::Failed);
+        assert_eq!(
+            execution.run.exit_result,
+            Some(AgentRunExitResult {
+                code: None,
+                signal: Some("15".to_owned()),
+            })
+        );
+    }
+
+    #[test]
+    fn utf8_stream_decoder_carries_split_multibyte_sequences() {
+        let mut decoder = Utf8StreamDecoder::default();
+        let mut events = Vec::new();
+        let bytes = "あ".as_bytes();
+
+        decoder.push(&bytes[..1], &mut |event| events.push(event.clone()));
+        assert!(events.is_empty());
+        decoder.push(&bytes[1..], &mut |event| events.push(event.clone()));
+
+        assert_eq!(
+            events,
+            vec![AgentRunStreamEvent::Terminal {
+                data: "あ".to_owned(),
+            }]
+        );
+    }
+
+    #[test]
+    fn rejects_unapproved_agent_run_execution() {
+        let repo = TestRepo::new("execute-unapproved");
+        let run = create_agent_run(
+            repo.path(),
+            CreateAgentRunOptions {
+                task_id: DocumentId::new(40).unwrap(),
+                agent_kind: "fixture".to_owned(),
+                worktree_path: None,
+            },
+        )
+        .unwrap();
+        let command = AgentCommand {
+            name: "fixture".to_owned(),
+            agent_kind: "fixture".to_owned(),
+            program: "sh".to_owned(),
+            args: vec!["-c".to_owned(), "true".to_owned()],
+            prompt_stdin: false,
+        };
+
+        let error = execute_agent_run(repo.path(), &run.run_id, &command, |_| {}).unwrap_err();
+
+        assert!(matches!(
+            error,
+            AgentRunStorageError::InvalidRunStatus { .. }
+        ));
+        let saved = read_agent_run_metadata(repo.path(), &run.run_id).unwrap();
+        assert_eq!(saved.status, AgentRunStatus::Prepared);
+    }
+
+    #[test]
+    fn rejects_unsupported_agent_command() {
+        let repo = TestRepo::new("execute-unsupported");
+        repo.seed_ready_task();
+        let prepared = prepare_agent_run(
+            repo.path(),
+            PrepareAgentRunOptions {
+                task_id: DocumentId::new(39).unwrap(),
+                agent_kind: "codex".to_owned(),
+            },
+        )
+        .unwrap();
+        approve_agent_run_prompt(repo.path(), &prepared.run.run_id).unwrap();
+        let command = AgentCommand {
+            name: "fixture".to_owned(),
+            agent_kind: "fixture".to_owned(),
+            program: "sh".to_owned(),
+            args: vec!["-c".to_owned(), "true".to_owned()],
+            prompt_stdin: false,
+        };
+
+        let error =
+            execute_agent_run(repo.path(), &prepared.run.run_id, &command, |_| {}).unwrap_err();
+
+        assert!(matches!(
+            error,
+            AgentRunStorageError::UnsupportedAgentCommand { .. }
+        ));
+        let saved = read_agent_run_metadata(repo.path(), &prepared.run.run_id).unwrap();
+        assert_eq!(saved.status, AgentRunStatus::PromptApproved);
     }
 
     #[test]

@@ -13,21 +13,23 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
+    convert::Infallible,
     io,
     net::SocketAddr,
     path::{Path as FsPath, PathBuf},
     sync::Arc,
 };
 use thiserror::Error;
+use tokio_stream::wrappers::ReceiverStream;
 use vibe_doc_core::{
-    approve_agent_run_prompt, complete_task, prepare_agent_run, rebuild_task_index,
-    scan_repository, start_task, task_context, validate_repository, AdrMetadata, AdrStatus,
-    AgentRun, AgentRunStorageError, CompleteTaskOptions, DesignMetadata, DocumentId,
-    DocumentMetadata, PrepareAgentRunOptions, Priority, RepositoryDocument, RepositoryScanError,
-    SpecMetadata, TaskContextError, TaskContextItem, TaskContextItemKind, TaskGuardIssue,
-    TaskGuardReport, TaskIndexRebuildError, TaskIndexRebuildOptions, TaskLifecycleError,
-    TaskLifecycleOptions, TaskLifecyclePlan, TaskMetadata, TaskStatus, TaskType, ValidationIssue,
-    ValidationRunError,
+    approve_agent_run_prompt, complete_task, execute_agent_run, preflight_agent_run_execution,
+    prepare_agent_run, rebuild_task_index, scan_repository, start_task, task_context,
+    validate_repository, AdrMetadata, AdrStatus, AgentCommand, AgentRun, AgentRunStorageError,
+    AgentRunStreamEvent, CompleteTaskOptions, DesignMetadata, DocumentId, DocumentMetadata,
+    PrepareAgentRunOptions, Priority, RepositoryDocument, RepositoryScanError, SpecMetadata,
+    TaskContextError, TaskContextItem, TaskContextItemKind, TaskGuardIssue, TaskGuardReport,
+    TaskIndexRebuildError, TaskIndexRebuildOptions, TaskLifecycleError, TaskLifecycleOptions,
+    TaskLifecyclePlan, TaskMetadata, TaskStatus, TaskType, ValidationIssue, ValidationRunError,
 };
 
 /// Stable crate identifier used by workspace smoke tests.
@@ -44,6 +46,7 @@ include!(concat!(env!("OUT_DIR"), "/embedded_assets.rs"));
 #[derive(Debug, Clone)]
 pub struct ServerState {
     repository_root: Arc<FsPath>,
+    agent_commands: Arc<BTreeMap<String, AgentCommand>>,
 }
 
 impl ServerState {
@@ -51,6 +54,17 @@ impl ServerState {
     pub fn new(repository_root: impl Into<PathBuf>) -> Self {
         Self {
             repository_root: Arc::from(repository_root.into().into_boxed_path()),
+            agent_commands: Arc::new(default_agent_commands()),
+        }
+    }
+
+    pub fn with_agent_commands(
+        repository_root: impl Into<PathBuf>,
+        agent_commands: impl IntoIterator<Item = AgentCommand>,
+    ) -> Self {
+        Self {
+            repository_root: Arc::from(repository_root.into().into_boxed_path()),
+            agent_commands: Arc::new(agent_command_map(agent_commands)),
         }
     }
 
@@ -62,6 +76,16 @@ impl ServerState {
 /// Build the read-only API router for a vibe-doc repository.
 pub fn api_router(repository_root: impl Into<PathBuf>) -> Router {
     api_routes().with_state(ServerState::new(repository_root))
+}
+
+pub fn api_router_with_agent_commands(
+    repository_root: impl Into<PathBuf>,
+    agent_commands: impl IntoIterator<Item = AgentCommand>,
+) -> Router {
+    api_routes().with_state(ServerState::with_agent_commands(
+        repository_root,
+        agent_commands,
+    ))
 }
 
 /// Build the full application router with API routes and embedded SPA serving.
@@ -126,12 +150,51 @@ fn api_routes() -> Router<ServerState> {
             "/api/runs/{run_id}/approve-prompt",
             post(approve_prompt_endpoint),
         )
+        .route("/api/runs/{run_id}/start", post(start_agent_run_endpoint))
         .route("/api/tasks/{id}/start", post(start_task_endpoint))
         .route("/api/tasks/{id}/complete", post(complete_task_endpoint))
         .route(
             "/api/tasks/index/rebuild",
             post(rebuild_task_index_endpoint),
         )
+}
+
+fn default_agent_commands() -> BTreeMap<String, AgentCommand> {
+    agent_command_map([AgentCommand {
+        name: "codex".to_owned(),
+        agent_kind: "codex".to_owned(),
+        program: "codex".to_owned(),
+        args: vec![
+            "exec".to_owned(),
+            "--skip-git-repo-check".to_owned(),
+            "-".to_owned(),
+        ],
+        prompt_stdin: true,
+    }])
+}
+
+fn agent_command_map(
+    commands: impl IntoIterator<Item = AgentCommand>,
+) -> BTreeMap<String, AgentCommand> {
+    commands
+        .into_iter()
+        .map(|command| (command.name.clone(), command))
+        .collect()
+}
+
+fn ndjson_event(event: &AgentRunStreamEvent) -> Vec<u8> {
+    match serde_json::to_vec(event) {
+        Ok(mut content) => {
+            content.push(b'\n');
+            content
+        }
+        Err(error) => format!(
+            "{{\"event\":\"error\",\"message\":{}}}\n",
+            serde_json::to_string(&error.to_string())
+                .unwrap_or_else(|_| "\"failed to serialize stream event\"".to_owned())
+        )
+        .into_bytes(),
+    }
 }
 
 async fn spa_fallback(method: Method, uri: Uri) -> Response {
@@ -434,6 +497,55 @@ async fn approve_prompt_endpoint(
 ) -> Result<Json<AgentRunResponse>, ApiFailure> {
     let run = approve_agent_run_prompt(state.root(), run_id).map_err(ApiFailure::AgentRun)?;
     Ok(Json(agent_run_response(state.root(), &run)))
+}
+
+async fn start_agent_run_endpoint(
+    State(state): State<ServerState>,
+    Path(run_id): Path<String>,
+    body: Option<Json<StartAgentRunRequest>>,
+) -> Result<Response, ApiFailure> {
+    let request = body.map(|Json(request)| request).unwrap_or_default();
+    let command_name = request.command.unwrap_or_else(|| "codex".to_owned());
+    let command = state
+        .agent_commands
+        .get(&command_name)
+        .cloned()
+        .ok_or_else(|| {
+            ApiFailure::AgentRun(AgentRunStorageError::UnsupportedAgentCommand {
+                run_id: run_id.clone(),
+                command: command_name.clone(),
+            })
+        })?;
+    preflight_agent_run_execution(state.root(), &run_id, &command).map_err(ApiFailure::AgentRun)?;
+
+    let root = state.root().to_path_buf();
+    let (sender, receiver) = tokio::sync::mpsc::channel::<Result<Vec<u8>, Infallible>>(16);
+    tokio::task::spawn_blocking(move || {
+        let stream_sender = sender.clone();
+        let result = execute_agent_run(root, &run_id, &command, |event| {
+            let _ = stream_sender.blocking_send(Ok(ndjson_event(event)));
+        });
+        match result {
+            Ok(execution) => {
+                let _ = sender.blocking_send(Ok(ndjson_event(&AgentRunStreamEvent::Completed {
+                    status: execution.run.status,
+                    exit_result: execution.run.exit_result,
+                })));
+            }
+            Err(error) => {
+                let _ = sender.blocking_send(Ok(ndjson_event(&AgentRunStreamEvent::Error {
+                    message: error.to_string(),
+                })));
+            }
+        }
+    });
+
+    Ok((
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "application/x-ndjson")],
+        Body::from_stream(ReceiverStream::new(receiver)),
+    )
+        .into_response())
 }
 
 async fn start_task_endpoint(
@@ -1101,6 +1213,11 @@ struct TaskGuardIssueResponse {
 }
 
 #[derive(Debug, Deserialize, Default)]
+struct StartAgentRunRequest {
+    command: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
 struct TaskMutationRequest {
     dry_run: Option<bool>,
     date: Option<String>,
@@ -1426,6 +1543,15 @@ fn agent_run_api_error(error: AgentRunStorageError) -> (StatusCode, ApiError) {
                 document_id: None,
             },
         ),
+        AgentRunStorageError::UnsupportedAgentCommand { .. } => (
+            StatusCode::BAD_REQUEST,
+            ApiError {
+                code: "AGENT_RUN_UNSUPPORTED_COMMAND",
+                message: error.to_string(),
+                path: None,
+                document_id: None,
+            },
+        ),
         AgentRunStorageError::ReadFile {
             ref path,
             ref source,
@@ -1493,7 +1619,14 @@ fn agent_run_api_error(error: AgentRunStorageError) -> (StatusCode, ApiError) {
         | AgentRunStorageError::ExhaustedRunIds { .. }
         | AgentRunStorageError::UnsafeWorktreePath { .. }
         | AgentRunStorageError::WorktreePathExists { .. }
-        | AgentRunStorageError::GitWorktree { .. } => (
+        | AgentRunStorageError::GitWorktree { .. }
+        | AgentRunStorageError::MissingWorktree { .. }
+        | AgentRunStorageError::SpawnAgentCommand { .. }
+        | AgentRunStorageError::ReadAgentOutput(_)
+        | AgentRunStorageError::WriteAgentInput(_)
+        | AgentRunStorageError::AgentInputWriterPanicked
+        | AgentRunStorageError::AgentOutputReaderPanicked
+        | AgentRunStorageError::CaptureDiff { .. } => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ApiError {
                 code: "AGENT_RUN_FAILED",
@@ -1537,6 +1670,7 @@ mod tests {
     use http_body_util::BodyExt;
     use std::{
         fs,
+        process::Command,
         time::{SystemTime, UNIX_EPOCH},
     };
     use tower::ServiceExt;
@@ -1847,6 +1981,174 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn start_agent_run_endpoint_streams_output_and_records_artifacts() {
+        let repo = TestRepo::new("start-agent-run");
+        repo.seed();
+        repo.init_git();
+        let router = api_router_with_agent_commands(
+            repo.path(),
+            [AgentCommand {
+                name: "fixture".to_owned(),
+                agent_kind: "codex".to_owned(),
+                program: "sh".to_owned(),
+                args: vec![
+                    "-c".to_owned(),
+                    "printf 'streamed output\\n'; printf 'changed\\n' > server-output.txt"
+                        .to_owned(),
+                ],
+                prompt_stdin: false,
+            }],
+        );
+        let prepared = post_json(router.clone(), "/api/tasks/28/prepare-codex", json!({})).await;
+        let run_id = prepared.body["run"]["run_id"].as_str().unwrap();
+        post_json(
+            router.clone(),
+            &format!("/api/runs/{run_id}/approve-prompt"),
+            json!({}),
+        )
+        .await;
+
+        let response = post_raw(
+            router,
+            &format!("/api/runs/{run_id}/start"),
+            json!({ "command": "fixture" }),
+        )
+        .await;
+
+        assert_eq!(response.status, StatusCode::OK);
+        assert_eq!(
+            response
+                .headers
+                .get("content-type")
+                .and_then(|value| value.to_str().ok()),
+            Some("application/x-ndjson")
+        );
+        let body = String::from_utf8(response.body).unwrap();
+        let events: Vec<Value> = body
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert!(events.iter().any(|event| event["event"] == "terminal"
+            && event["data"]
+                .as_str()
+                .is_some_and(|data| data.contains("streamed output"))));
+        assert!(events.iter().any(|event| event["event"] == "completed"
+            && event["status"] == "succeeded"
+            && event["exit_result"]["code"] == 0));
+
+        let run_json: AgentRun = serde_json::from_str(
+            &fs::read_to_string(repo.root.join(format!(".vdoc/runs/{run_id}/run.json"))).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(run_json.status, vibe_doc_core::AgentRunStatus::Succeeded);
+        assert_eq!(run_json.exit_result.unwrap().code, Some(0));
+        let terminal_log =
+            fs::read_to_string(repo.root.join(format!(".vdoc/runs/{run_id}/terminal.log")))
+                .unwrap();
+        assert!(terminal_log.contains("streamed output"));
+        let diff =
+            fs::read_to_string(repo.root.join(format!(".vdoc/runs/{run_id}/diff.patch"))).unwrap();
+        assert!(diff.contains("server-output.txt"));
+        assert!(diff.contains("+changed"));
+    }
+
+    #[tokio::test]
+    async fn start_agent_run_endpoint_streams_structured_errors() {
+        let repo = TestRepo::new("start-agent-run-stream-error");
+        repo.seed();
+        repo.init_git();
+        let router = api_router_with_agent_commands(
+            repo.path(),
+            [AgentCommand {
+                name: "fixture".to_owned(),
+                agent_kind: "codex".to_owned(),
+                program: "missing-vdoc-test-command".to_owned(),
+                args: vec![],
+                prompt_stdin: false,
+            }],
+        );
+        let prepared = post_json(router.clone(), "/api/tasks/28/prepare-codex", json!({})).await;
+        let run_id = prepared.body["run"]["run_id"].as_str().unwrap();
+        post_json(
+            router.clone(),
+            &format!("/api/runs/{run_id}/approve-prompt"),
+            json!({}),
+        )
+        .await;
+
+        let response = post_raw(
+            router,
+            &format!("/api/runs/{run_id}/start"),
+            json!({ "command": "fixture" }),
+        )
+        .await;
+
+        assert_eq!(response.status, StatusCode::OK);
+        let body = String::from_utf8(response.body).unwrap();
+        let events: Vec<Value> = body
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert!(events.iter().any(|event| {
+            event["event"] == "error"
+                && event["message"]
+                    .as_str()
+                    .is_some_and(|message| message.contains("failed to spawn agent command"))
+        }));
+
+        let run_json: AgentRun = serde_json::from_str(
+            &fs::read_to_string(repo.root.join(format!(".vdoc/runs/{run_id}/run.json"))).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(run_json.status, vibe_doc_core::AgentRunStatus::Failed);
+    }
+
+    #[tokio::test]
+    async fn start_agent_run_endpoint_rejects_unapproved_or_unknown_commands() {
+        let repo = TestRepo::new("start-agent-run-errors");
+        repo.seed();
+        let router = api_router_with_agent_commands(
+            repo.path(),
+            [AgentCommand {
+                name: "fixture".to_owned(),
+                agent_kind: "codex".to_owned(),
+                program: "sh".to_owned(),
+                args: vec!["-c".to_owned(), "true".to_owned()],
+                prompt_stdin: false,
+            }],
+        );
+        let prepared = post_json(router.clone(), "/api/tasks/28/prepare-codex", json!({})).await;
+        let run_id = prepared.body["run"]["run_id"].as_str().unwrap();
+
+        let unapproved = post_json(
+            router.clone(),
+            &format!("/api/runs/{run_id}/start"),
+            json!({ "command": "fixture" }),
+        )
+        .await;
+        assert_eq!(unapproved.status, StatusCode::CONFLICT);
+        assert_eq!(unapproved.body["error"]["code"], "AGENT_RUN_INVALID_STATUS");
+
+        post_json(
+            router.clone(),
+            &format!("/api/runs/{run_id}/approve-prompt"),
+            json!({}),
+        )
+        .await;
+        let unsupported = post_json(
+            router,
+            &format!("/api/runs/{run_id}/start"),
+            json!({ "command": "missing" }),
+        )
+        .await;
+        assert_eq!(unsupported.status, StatusCode::BAD_REQUEST);
+        assert_eq!(
+            unsupported.body["error"]["code"],
+            "AGENT_RUN_UNSUPPORTED_COMMAND"
+        );
+    }
+
+    #[tokio::test]
     async fn app_router_serves_embedded_spa_assets_and_browser_routes() {
         let repo = TestRepo::new("spa");
         repo.seed();
@@ -1921,6 +2223,10 @@ mod tests {
             status: response.status,
             body,
         }
+    }
+
+    async fn post_raw(router: Router, uri: &str, body: Value) -> RawTestResponse {
+        request_with_body(router, Method::POST, uri, body.to_string()).await
     }
 
     async fn request(router: Router, uri: &str) -> RawTestResponse {
@@ -2126,6 +2432,29 @@ Expose APIs.
 
 Not implemented.
 ",
+            );
+        }
+
+        fn init_git(&self) {
+            self.run_git(["init"]);
+            self.run_git(["config", "user.email", "vibe-doc@example.invalid"]);
+            self.run_git(["config", "user.name", "vibe-doc tests"]);
+            self.run_git(["config", "commit.gpgsign", "false"]);
+            self.run_git(["add", "."]);
+            self.run_git(["commit", "-m", "Initial commit"]);
+        }
+
+        fn run_git<const N: usize>(&self, args: [&str; N]) {
+            let output = Command::new("git")
+                .arg("-C")
+                .arg(&self.root)
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "git command failed: {}",
+                String::from_utf8_lossy(&output.stderr)
             );
         }
 
