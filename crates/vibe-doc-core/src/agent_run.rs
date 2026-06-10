@@ -1,4 +1,7 @@
-use crate::DocumentId;
+use crate::{
+    guard_task, scan_repository, task_context, DocumentId, DocumentMetadata, Priority, TaskContext,
+    TaskContextError, TaskContextItemKind, TaskGuardReport, TaskMetadata, TaskStatus,
+};
 use chrono::{SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -58,6 +61,12 @@ impl AgentRunStatus {
     }
 }
 
+impl std::fmt::Display for AgentRunStatus {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentRunExitResult {
     pub code: Option<i32>,
@@ -82,6 +91,28 @@ pub struct CreateAgentRunOptions {
     pub worktree_path: Option<PathBuf>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrepareAgentRunOptions {
+    pub task_id: DocumentId,
+    pub agent_kind: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedAgentRun {
+    pub run: AgentRun,
+    pub guard: TaskGuardReport,
+    pub prompt: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentRunEvent {
+    pub event: String,
+    pub run_id: String,
+    pub task_id: DocumentId,
+    pub status: AgentRunStatus,
+    pub created_at: String,
+}
+
 #[derive(Debug, Error)]
 pub enum AgentRunStorageError {
     #[error("could not locate vibe-doc repository root from {}", start.display())]
@@ -100,10 +131,32 @@ pub enum AgentRunStorageError {
         #[source]
         source: io::Error,
     },
+    #[error("failed to read {}: {source}", path.display())]
+    ReadFile {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
     #[error("failed to serialize agent run metadata: {0}")]
     Serialize(#[source] serde_json::Error),
+    #[error("failed to parse agent run metadata from {}: {source}", path.display())]
+    Deserialize {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
     #[error("could not allocate a unique agent run ID under {}", runs_dir.display())]
     ExhaustedRunIds { runs_dir: PathBuf },
+    #[error("task guard failed for task {}", report.task_id.get())]
+    GuardFailed { report: TaskGuardReport },
+    #[error(transparent)]
+    TaskContext(#[from] TaskContextError),
+    #[error("agent run `{run_id}` has status {status}; expected {expected}")]
+    InvalidRunStatus {
+        run_id: String,
+        status: AgentRunStatus,
+        expected: &'static str,
+    },
     #[error("agent worktree path {} is outside {}", path.display(), allowed_dir.display())]
     UnsafeWorktreePath { path: PathBuf, allowed_dir: PathBuf },
     #[error("agent worktree path {} already exists", path.display())]
@@ -216,6 +269,32 @@ pub fn create_agent_run(
     Ok(run)
 }
 
+pub fn prepare_agent_run(
+    root: impl AsRef<Path>,
+    options: PrepareAgentRunOptions,
+) -> Result<PreparedAgentRun, AgentRunStorageError> {
+    let root = root.as_ref();
+    let guard = guard_task(root, options.task_id)?;
+    if !guard.ready {
+        return Err(AgentRunStorageError::GuardFailed { report: guard });
+    }
+
+    let context = task_context(root, options.task_id)?;
+    let metadata = load_task_metadata(root, options.task_id)?;
+    let prompt = generate_agent_prompt(root, &metadata, &guard, &context);
+    let run = create_agent_run(
+        root,
+        CreateAgentRunOptions {
+            task_id: options.task_id,
+            agent_kind: options.agent_kind,
+            worktree_path: None,
+        },
+    )?;
+    write_agent_run_prompt(&run, &prompt)?;
+
+    Ok(PreparedAgentRun { run, guard, prompt })
+}
+
 pub fn write_agent_run_metadata(run: &AgentRun) -> Result<(), AgentRunStorageError> {
     let content = serde_json::to_string_pretty(run).map_err(AgentRunStorageError::Serialize)?;
     fs::write(&run.artifacts.run_json, format!("{content}\n")).map_err(|source| {
@@ -224,6 +303,78 @@ pub fn write_agent_run_metadata(run: &AgentRun) -> Result<(), AgentRunStorageErr
             source,
         }
     })
+}
+
+pub fn read_agent_run_metadata(
+    root: impl AsRef<Path>,
+    run_id: impl AsRef<str>,
+) -> Result<AgentRun, AgentRunStorageError> {
+    let artifacts = agent_run_artifacts(root, run_id)?;
+    let raw = fs::read_to_string(&artifacts.run_json).map_err(|source| {
+        AgentRunStorageError::ReadFile {
+            path: artifacts.run_json.clone(),
+            source,
+        }
+    })?;
+    serde_json::from_str(&raw).map_err(|source| AgentRunStorageError::Deserialize {
+        path: artifacts.run_json,
+        source,
+    })
+}
+
+pub fn write_agent_run_prompt(run: &AgentRun, prompt: &str) -> Result<(), AgentRunStorageError> {
+    fs::write(&run.artifacts.prompt, prompt).map_err(|source| AgentRunStorageError::WriteFile {
+        path: run.artifacts.prompt.clone(),
+        source,
+    })
+}
+
+pub fn approve_agent_run_prompt(
+    root: impl AsRef<Path>,
+    run_id: impl AsRef<str>,
+) -> Result<AgentRun, AgentRunStorageError> {
+    let mut run = read_agent_run_metadata(root, run_id)?;
+    if run.status != AgentRunStatus::Prepared {
+        return Err(AgentRunStorageError::InvalidRunStatus {
+            run_id: run.run_id,
+            status: run.status,
+            expected: AgentRunStatus::Prepared.as_str(),
+        });
+    }
+
+    let now = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
+    run.status = AgentRunStatus::PromptApproved;
+    run.updated_at = now.clone();
+    let event = AgentRunEvent {
+        event: "prompt-approved".to_owned(),
+        run_id: run.run_id.clone(),
+        task_id: run.task_id,
+        status: run.status,
+        created_at: now,
+    };
+    append_agent_run_event(&run, &event)?;
+    write_agent_run_metadata(&run)?;
+
+    Ok(run)
+}
+
+pub fn append_agent_run_event(
+    run: &AgentRun,
+    event: &AgentRunEvent,
+) -> Result<(), AgentRunStorageError> {
+    let content = serde_json::to_string(event).map_err(AgentRunStorageError::Serialize)?;
+    fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&run.artifacts.events)
+        .and_then(|mut file| {
+            use std::io::Write;
+            writeln!(file, "{content}")
+        })
+        .map_err(|source| AgentRunStorageError::WriteFile {
+            path: run.artifacts.events.clone(),
+            source,
+        })
 }
 
 pub fn agent_worktree_name(
@@ -392,6 +543,105 @@ fn is_safe_run_id(run_id: &str) -> bool {
             .all(|component| matches!(component, Component::Normal(_)))
 }
 
+fn load_task_metadata(
+    root: &Path,
+    task_id: DocumentId,
+) -> Result<TaskMetadata, AgentRunStorageError> {
+    let documents = scan_repository(root).map_err(TaskContextError::RepositoryScan)?;
+    documents
+        .into_iter()
+        .find_map(|document| match document.document.metadata {
+            DocumentMetadata::Task(metadata) if metadata.common.id == task_id => Some(metadata),
+            _ => None,
+        })
+        .ok_or(TaskContextError::TaskNotFound { id: task_id })
+        .map_err(AgentRunStorageError::TaskContext)
+}
+
+fn generate_agent_prompt(
+    root: &Path,
+    task_metadata: &TaskMetadata,
+    guard: &TaskGuardReport,
+    context: &TaskContext,
+) -> String {
+    let mut prompt = String::new();
+    prompt.push_str("# Codex Task Run\n\n");
+    prompt
+        .push_str("Implement the documented vibe-doc task using the repository context below.\n\n");
+    prompt.push_str("## Repository\n\n");
+    prompt.push_str(&format!("- Root: `{}`\n", root.display()));
+    prompt.push_str("- Entry point: task ID only\n");
+    prompt.push_str(
+        "- Execution mode: prepare prompt for explicit approval before running an agent\n\n",
+    );
+
+    prompt.push_str("## Task\n\n");
+    prompt.push_str(&format!("- ID: {}\n", task_metadata.common.id.get()));
+    prompt.push_str(&format!("- Title: {}\n", task_metadata.common.title));
+    prompt.push_str(&format!(
+        "- Status: {}\n",
+        task_status_str(task_metadata.status)
+    ));
+    prompt.push_str(&format!(
+        "- Priority: {}\n\n",
+        task_metadata.priority.map(priority_str).unwrap_or("medium")
+    ));
+
+    prompt.push_str("## Guard\n\n");
+    prompt.push_str(&format!("- Ready: {}\n", guard.ready));
+    if guard.issues.is_empty() {
+        prompt.push_str("- Issues: none\n\n");
+    } else {
+        prompt.push_str("- Issues:\n");
+        for issue in &guard.issues {
+            prompt.push_str(&format!("  - {}: {}\n", issue.code.as_str(), issue.message));
+        }
+        prompt.push('\n');
+    }
+
+    prompt.push_str("## Context\n\n");
+    for item in &context.items {
+        let role = match item.kind {
+            TaskContextItemKind::Task => "Task",
+            TaskContextItemKind::Spec => "Spec",
+            TaskContextItemKind::Design => "Design",
+            TaskContextItemKind::Adr => "ADR",
+        };
+        let id = item
+            .document_id
+            .map(|id| id.get().to_string())
+            .unwrap_or_else(|| "unnumbered".to_owned());
+        let title = item.title.as_deref().unwrap_or("Untitled");
+        prompt.push_str(&format!(
+            "### {role} {id}: {title}\n\nPath: `{}`\n\n",
+            item.path.display()
+        ));
+        prompt.push_str(item.content.trim());
+        prompt.push_str("\n\n");
+    }
+
+    prompt
+}
+
+fn task_status_str(status: TaskStatus) -> &'static str {
+    match status {
+        TaskStatus::Planned => "planned",
+        TaskStatus::Doing => "doing",
+        TaskStatus::Blocked => "blocked",
+        TaskStatus::Done => "done",
+        TaskStatus::Dropped => "dropped",
+    }
+}
+
+fn priority_str(priority: Priority) -> &'static str {
+    match priority {
+        Priority::Low => "low",
+        Priority::Medium => "medium",
+        Priority::High => "high",
+        Priority::Critical => "critical",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -477,6 +727,99 @@ mod tests {
         assert_eq!(saved.status, AgentRunStatus::Prepared);
         assert_eq!(saved.worktree_path, run.worktree_path);
         assert_eq!(saved.artifacts.prompt, run.artifacts.prompt);
+    }
+
+    #[test]
+    fn prepares_agent_run_with_prompt_and_metadata_artifacts() {
+        let repo = TestRepo::new("prepare");
+        repo.seed_ready_task();
+
+        let prepared = prepare_agent_run(
+            repo.path(),
+            PrepareAgentRunOptions {
+                task_id: DocumentId::new(39).unwrap(),
+                agent_kind: "codex".to_owned(),
+            },
+        )
+        .unwrap();
+
+        assert!(prepared.guard.ready);
+        assert_eq!(prepared.run.status, AgentRunStatus::Prepared);
+        assert_eq!(prepared.run.agent_kind, "codex");
+        assert!(prepared.prompt.contains("# Codex Task Run"));
+        assert!(prepared.prompt.contains("- ID: 39"));
+        assert!(prepared.prompt.contains("Implement agent run APIs"));
+        assert!(prepared.prompt.contains("### Spec 12: Agent Spec"));
+        assert!(prepared.run.artifacts.run_json.is_file());
+        assert_eq!(
+            fs::read_to_string(&prepared.run.artifacts.prompt).unwrap(),
+            prepared.prompt
+        );
+    }
+
+    #[test]
+    fn prepare_agent_run_does_not_create_run_when_guard_fails() {
+        let repo = TestRepo::new("prepare-guard-fails");
+        repo.write(
+            "docs/tasks/done/39-agent.md",
+            "\
+---
+id: 39
+title: Agent APIs
+kind: task
+type: feature
+status: done
+depends_on: []
+---
+
+# Agent APIs
+",
+        );
+
+        let error = prepare_agent_run(
+            repo.path(),
+            PrepareAgentRunOptions {
+                task_id: DocumentId::new(39).unwrap(),
+                agent_kind: "codex".to_owned(),
+            },
+        )
+        .unwrap_err();
+
+        let AgentRunStorageError::GuardFailed { report } = error else {
+            panic!("expected guard failure");
+        };
+        assert!(!report.ready);
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.code.as_str() == "TASK_NOT_ACTIVE"));
+        assert!(!agent_runs_dir(repo.path()).exists());
+    }
+
+    #[test]
+    fn approving_prompt_records_event_and_updates_status() {
+        let repo = TestRepo::new("approve");
+        repo.seed_ready_task();
+        let prepared = prepare_agent_run(
+            repo.path(),
+            PrepareAgentRunOptions {
+                task_id: DocumentId::new(39).unwrap(),
+                agent_kind: "codex".to_owned(),
+            },
+        )
+        .unwrap();
+
+        let approved = approve_agent_run_prompt(repo.path(), &prepared.run.run_id).unwrap();
+
+        assert_eq!(approved.status, AgentRunStatus::PromptApproved);
+        let saved = read_agent_run_metadata(repo.path(), &prepared.run.run_id).unwrap();
+        assert_eq!(saved.status, AgentRunStatus::PromptApproved);
+        let events = fs::read_to_string(&approved.artifacts.events).unwrap();
+        assert!(events.contains("\"event\":\"prompt-approved\""));
+        assert!(matches!(
+            approve_agent_run_prompt(repo.path(), &prepared.run.run_id),
+            Err(AgentRunStorageError::InvalidRunStatus { .. })
+        ));
     }
 
     #[test]
@@ -652,6 +995,61 @@ kind: spec
             self.write("README.md", "# Test repo\n");
             self.run_git(["add", "README.md"]);
             self.run_git(["commit", "-m", "Initial commit"]);
+        }
+
+        fn seed_ready_task(&self) {
+            self.write(
+                "docs/specs/12-agent.md",
+                "\
+---
+id: 12
+title: Agent Spec
+kind: spec
+---
+
+# Agent Spec
+
+Use task IDs as the entry point.
+",
+            );
+            self.write(
+                "docs/designs/35-agent.md",
+                "\
+---
+id: 35
+title: Agent Design
+kind: design
+specs:
+  - 12
+---
+
+# Agent Design
+
+Generate a prompt before execution.
+",
+            );
+            self.write(
+                "docs/tasks/active/39-agent.md",
+                "\
+---
+id: 39
+title: Implement agent run APIs
+kind: task
+type: feature
+status: planned
+priority: high
+specs:
+  - 12
+designs:
+  - 35
+depends_on: []
+---
+
+# Implement agent run APIs
+
+Prepare and approve a prompt.
+",
+            );
         }
 
         fn run_git<const N: usize>(&self, args: [&str; N]) {

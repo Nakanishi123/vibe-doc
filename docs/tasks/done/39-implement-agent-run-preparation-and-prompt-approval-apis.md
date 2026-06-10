@@ -3,7 +3,7 @@ id: 39
 title: Implement agent run preparation and prompt approval APIs
 kind: task
 type: feature
-status: planned
+status: done
 priority: medium
 specs:
 - 12
@@ -11,6 +11,8 @@ designs:
 - 35
 depends_on:
 - 37
+started_at: 2026-06-10
+completed_at: 2026-06-10
 ---
 
 ## Goal
@@ -37,19 +39,19 @@ generated prompt before execution.
 
 ## Checklist
 
-- [ ] Prepare API creates an `AgentRun` from a task ID.
-- [ ] Prompt generation uses guard and context outputs.
-- [ ] Prompt approval is explicit and recorded.
-- [ ] Failed guard results do not create executable runs.
-- [ ] Tests cover prepare and approval behavior.
+- [x] Prepare API creates an `AgentRun` from a task ID.
+- [x] Prompt generation uses guard and context outputs.
+- [x] Prompt approval is explicit and recorded.
+- [x] Failed guard results do not create executable runs.
+- [x] Tests cover prepare and approval behavior.
 
 ## Done Criteria
 
-- [ ] Related specs are satisfied.
-- [ ] Related designs are followed.
-- [ ] Related ADRs are not violated.
-- [ ] Tests pass.
+- [x] Related specs are satisfied.
+- [x] Related designs are followed.
+- [x] Related ADRs are not violated.
+- [x] Tests pass.
 
 ## Result
 
-Not implemented.
+Implemented Codex run preparation and prompt approval APIs. The server can prepare a guarded task run, persist run.json and prompt.md under .vdoc/runs, return prompt and run metadata, and record explicit prompt approval events.

@@ -13,18 +13,21 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
+    io,
     net::SocketAddr,
     path::{Path as FsPath, PathBuf},
     sync::Arc,
 };
 use thiserror::Error;
 use vibe_doc_core::{
-    complete_task, rebuild_task_index, scan_repository, start_task, task_context,
-    validate_repository, AdrMetadata, AdrStatus, CompleteTaskOptions, DesignMetadata, DocumentId,
-    DocumentMetadata, Priority, RepositoryDocument, RepositoryScanError, SpecMetadata,
-    TaskContextError, TaskContextItem, TaskContextItemKind, TaskIndexRebuildError,
-    TaskIndexRebuildOptions, TaskLifecycleError, TaskLifecycleOptions, TaskLifecyclePlan,
-    TaskMetadata, TaskStatus, TaskType, ValidationIssue, ValidationRunError,
+    approve_agent_run_prompt, complete_task, prepare_agent_run, rebuild_task_index,
+    scan_repository, start_task, task_context, validate_repository, AdrMetadata, AdrStatus,
+    AgentRun, AgentRunStorageError, CompleteTaskOptions, DesignMetadata, DocumentId,
+    DocumentMetadata, PrepareAgentRunOptions, Priority, RepositoryDocument, RepositoryScanError,
+    SpecMetadata, TaskContextError, TaskContextItem, TaskContextItemKind, TaskGuardIssue,
+    TaskGuardReport, TaskIndexRebuildError, TaskIndexRebuildOptions, TaskLifecycleError,
+    TaskLifecycleOptions, TaskLifecyclePlan, TaskMetadata, TaskStatus, TaskType, ValidationIssue,
+    ValidationRunError,
 };
 
 /// Stable crate identifier used by workspace smoke tests.
@@ -118,6 +121,11 @@ fn api_routes() -> Router<ServerState> {
         .route("/api/tasks/{id}", get(task_detail))
         .route("/api/validation", get(validation_report))
         .route("/api/context/task/{id}", get(task_context_detail))
+        .route("/api/tasks/{id}/prepare-codex", post(prepare_codex_run))
+        .route(
+            "/api/runs/{run_id}/approve-prompt",
+            post(approve_prompt_endpoint),
+        )
         .route("/api/tasks/{id}/start", post(start_task_endpoint))
         .route("/api/tasks/{id}/complete", post(complete_task_endpoint))
         .route(
@@ -397,6 +405,35 @@ async fn task_context_detail(
             .map(|item| task_context_file(state.root(), item))
             .collect(),
     }))
+}
+
+async fn prepare_codex_run(
+    State(state): State<ServerState>,
+    Path(id): Path<String>,
+) -> Result<Json<PrepareAgentRunResponse>, ApiFailure> {
+    let id = parse_document_id(&id, MissingCode::Task)?;
+    let prepared = prepare_agent_run(
+        state.root(),
+        PrepareAgentRunOptions {
+            task_id: id,
+            agent_kind: "codex".to_owned(),
+        },
+    )
+    .map_err(ApiFailure::AgentRun)?;
+
+    Ok(Json(PrepareAgentRunResponse {
+        run: agent_run_response(state.root(), &prepared.run),
+        guard: task_guard_response(state.root(), &prepared.guard),
+        prompt: prepared.prompt,
+    }))
+}
+
+async fn approve_prompt_endpoint(
+    State(state): State<ServerState>,
+    Path(run_id): Path<String>,
+) -> Result<Json<AgentRunResponse>, ApiFailure> {
+    let run = approve_agent_run_prompt(state.root(), run_id).map_err(ApiFailure::AgentRun)?;
+    Ok(Json(agent_run_response(state.root(), &run)))
 }
 
 async fn start_task_endpoint(
@@ -811,6 +848,54 @@ fn task_context_role(kind: TaskContextItemKind) -> &'static str {
     }
 }
 
+fn agent_run_response(root: &FsPath, run: &AgentRun) -> AgentRunResponse {
+    AgentRunResponse {
+        task_id: run.task_id.get(),
+        run_id: run.run_id.clone(),
+        agent_kind: run.agent_kind.clone(),
+        status: run.status.as_str().to_owned(),
+        worktree_path: run
+            .worktree_path
+            .as_ref()
+            .map(|path| display_path(&relative_path(root, path))),
+        created_at: run.created_at.clone(),
+        updated_at: run.updated_at.clone(),
+        artifacts: AgentRunArtifactsResponse {
+            directory: display_path(&relative_path(root, &run.artifacts.directory)),
+            run_json: display_path(&relative_path(root, &run.artifacts.run_json)),
+            prompt: display_path(&relative_path(root, &run.artifacts.prompt)),
+            events: display_path(&relative_path(root, &run.artifacts.events)),
+            terminal_log: display_path(&relative_path(root, &run.artifacts.terminal_log)),
+            diff: display_path(&relative_path(root, &run.artifacts.diff)),
+            review: display_path(&relative_path(root, &run.artifacts.review)),
+        },
+    }
+}
+
+fn task_guard_response(root: &FsPath, report: &TaskGuardReport) -> TaskGuardResponse {
+    TaskGuardResponse {
+        task_id: report.task_id.get(),
+        ready: report.ready,
+        issues: report
+            .issues
+            .iter()
+            .map(|issue| task_guard_issue_response(root, issue))
+            .collect(),
+    }
+}
+
+fn task_guard_issue_response(root: &FsPath, issue: &TaskGuardIssue) -> TaskGuardIssueResponse {
+    TaskGuardIssueResponse {
+        code: issue.code.as_str().to_owned(),
+        message: issue.message.clone(),
+        document_id: issue.document_id.map(DocumentId::get),
+        path: issue
+            .path
+            .as_ref()
+            .map(|path| display_path(&relative_path(root, path))),
+    }
+}
+
 fn task_lifecycle_response(
     command: &'static str,
     dry_run: bool,
@@ -967,6 +1052,54 @@ struct TaskContextFile {
     content: String,
 }
 
+#[derive(Debug, Serialize)]
+struct PrepareAgentRunResponse {
+    run: AgentRunResponse,
+    guard: TaskGuardResponse,
+    prompt: String,
+}
+
+#[derive(Debug, Serialize)]
+struct AgentRunResponse {
+    task_id: u64,
+    run_id: String,
+    agent_kind: String,
+    status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    worktree_path: Option<String>,
+    created_at: String,
+    updated_at: String,
+    artifacts: AgentRunArtifactsResponse,
+}
+
+#[derive(Debug, Serialize)]
+struct AgentRunArtifactsResponse {
+    directory: String,
+    run_json: String,
+    prompt: String,
+    events: String,
+    terminal_log: String,
+    diff: String,
+    review: String,
+}
+
+#[derive(Debug, Serialize)]
+struct TaskGuardResponse {
+    task_id: u64,
+    ready: bool,
+    issues: Vec<TaskGuardIssueResponse>,
+}
+
+#[derive(Debug, Serialize)]
+struct TaskGuardIssueResponse {
+    code: String,
+    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    document_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path: Option<String>,
+}
+
 #[derive(Debug, Deserialize, Default)]
 struct TaskMutationRequest {
     dry_run: Option<bool>,
@@ -1024,6 +1157,8 @@ enum ApiFailure {
     TaskLifecycle(#[from] TaskLifecycleError),
     #[error(transparent)]
     RebuildIndex(#[from] TaskIndexRebuildError),
+    #[error(transparent)]
+    AgentRun(#[from] AgentRunStorageError),
     #[error("invalid document ID `{raw}`")]
     InvalidId {
         raw: String,
@@ -1048,6 +1183,21 @@ impl ApiFailure {
 
 impl IntoResponse for ApiFailure {
     fn into_response(self) -> Response {
+        if let Self::AgentRun(AgentRunStorageError::GuardFailed { report }) = self {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({
+                    "error": {
+                        "code": "AGENT_RUN_GUARD_FAILED",
+                        "message": format!("task guard failed for task {}", report.task_id.get()),
+                        "document_id": report.task_id.get(),
+                    },
+                    "guard": task_guard_response(FsPath::new(""), &report),
+                })),
+            )
+                .into_response();
+        }
+
         let (status, error) = match self {
             Self::Scan(error) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -1096,6 +1246,7 @@ impl IntoResponse for ApiFailure {
             ),
             Self::TaskLifecycle(error) => task_lifecycle_api_error(error),
             Self::RebuildIndex(error) => rebuild_index_api_error(error),
+            Self::AgentRun(error) => agent_run_api_error(error),
             Self::InvalidId { raw, missing_code } => (
                 StatusCode::BAD_REQUEST,
                 ApiError {
@@ -1249,6 +1400,105 @@ fn rebuild_index_api_error(error: TaskIndexRebuildError) -> (StatusCode, ApiErro
                 code: "REBUILD_INDEX_IO_FAILED",
                 message: error.to_string(),
                 path: Some(display_path(path)),
+                document_id: None,
+            },
+        ),
+    }
+}
+
+fn agent_run_api_error(error: AgentRunStorageError) -> (StatusCode, ApiError) {
+    match error {
+        AgentRunStorageError::RepositoryRootNotFound { .. } => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError {
+                code: "AGENT_RUN_REPOSITORY_ROOT_NOT_FOUND",
+                message: error.to_string(),
+                path: None,
+                document_id: None,
+            },
+        ),
+        AgentRunStorageError::UnsafeRunId { .. } => (
+            StatusCode::BAD_REQUEST,
+            ApiError {
+                code: "INVALID_AGENT_RUN_ID",
+                message: error.to_string(),
+                path: None,
+                document_id: None,
+            },
+        ),
+        AgentRunStorageError::ReadFile {
+            ref path,
+            ref source,
+        } if source.kind() == io::ErrorKind::NotFound => (
+            StatusCode::NOT_FOUND,
+            ApiError {
+                code: "AGENT_RUN_NOT_FOUND",
+                message: error.to_string(),
+                path: Some(display_path(path)),
+                document_id: None,
+            },
+        ),
+        AgentRunStorageError::InvalidRunStatus { .. } => (
+            StatusCode::CONFLICT,
+            ApiError {
+                code: "AGENT_RUN_INVALID_STATUS",
+                message: error.to_string(),
+                path: None,
+                document_id: None,
+            },
+        ),
+        AgentRunStorageError::TaskContext(error) => match error {
+            TaskContextError::TaskNotFound { id } => (
+                StatusCode::NOT_FOUND,
+                ApiError {
+                    code: "TASK_NOT_FOUND",
+                    message: format!("task {} was not found", id.get()),
+                    path: None,
+                    document_id: Some(id.get()),
+                },
+            ),
+            TaskContextError::MissingRelatedDocument { id, .. } => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                ApiError {
+                    code: "TASK_CONTEXT_MISSING_RELATED_DOCUMENT",
+                    message: error.to_string(),
+                    path: None,
+                    document_id: Some(id.get()),
+                },
+            ),
+            TaskContextError::RepositoryScan(error) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiError {
+                    code: "TASK_CONTEXT_SCAN_FAILED",
+                    message: error.to_string(),
+                    path: None,
+                    document_id: None,
+                },
+            ),
+        },
+        AgentRunStorageError::GuardFailed { .. } => unreachable!("handled before error mapping"),
+        AgentRunStorageError::CreateDir { ref path, .. }
+        | AgentRunStorageError::WriteFile { ref path, .. }
+        | AgentRunStorageError::ReadFile { ref path, .. }
+        | AgentRunStorageError::Deserialize { ref path, .. } => (
+            StatusCode::CONFLICT,
+            ApiError {
+                code: "AGENT_RUN_ARTIFACT_IO_FAILED",
+                message: error.to_string(),
+                path: Some(display_path(path)),
+                document_id: None,
+            },
+        ),
+        AgentRunStorageError::Serialize(_)
+        | AgentRunStorageError::ExhaustedRunIds { .. }
+        | AgentRunStorageError::UnsafeWorktreePath { .. }
+        | AgentRunStorageError::WorktreePathExists { .. }
+        | AgentRunStorageError::GitWorktree { .. } => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError {
+                code: "AGENT_RUN_FAILED",
+                message: error.to_string(),
+                path: None,
                 document_id: None,
             },
         ),
@@ -1488,6 +1738,112 @@ mod tests {
         assert_eq!(response.body["path"], "docs/tasks/index.md");
         let index = fs::read_to_string(repo.root.join("docs/tasks/index.md")).unwrap();
         assert!(index.contains("- 2 API"));
+    }
+
+    #[tokio::test]
+    async fn prepare_codex_endpoint_creates_prompt_and_run_artifacts() {
+        let repo = TestRepo::new("prepare-codex");
+        repo.seed();
+
+        let response = post_json(
+            api_router(repo.path()),
+            "/api/tasks/28/prepare-codex",
+            json!({}),
+        )
+        .await;
+
+        assert_eq!(response.status, StatusCode::OK);
+        assert_eq!(response.body["run"]["task_id"], 28);
+        assert_eq!(response.body["run"]["agent_kind"], "codex");
+        assert_eq!(response.body["run"]["status"], "prepared");
+        assert_eq!(response.body["guard"]["ready"], true);
+        assert!(response.body["prompt"]
+            .as_str()
+            .unwrap()
+            .contains("### Task 28: API"));
+        assert_eq!(
+            response.body["run"]["artifacts"]["prompt"],
+            format!(
+                "{}/prompt.md",
+                response.body["run"]["artifacts"]["directory"]
+                    .as_str()
+                    .unwrap()
+            )
+        );
+
+        let prompt_path = repo.root.join(
+            response.body["run"]["artifacts"]["prompt"]
+                .as_str()
+                .unwrap(),
+        );
+        let prompt = fs::read_to_string(prompt_path).unwrap();
+        assert_eq!(prompt, response.body["prompt"].as_str().unwrap());
+        let run_json_path = repo.root.join(
+            response.body["run"]["artifacts"]["run_json"]
+                .as_str()
+                .unwrap(),
+        );
+        assert!(run_json_path.is_file());
+    }
+
+    #[tokio::test]
+    async fn prepare_codex_endpoint_returns_guard_failure_without_artifacts() {
+        let repo = TestRepo::new("prepare-codex-guard");
+        repo.seed();
+
+        let response = post_json(
+            api_router(repo.path()),
+            "/api/tasks/27/prepare-codex",
+            json!({}),
+        )
+        .await;
+
+        assert_eq!(response.status, StatusCode::CONFLICT);
+        assert_eq!(response.body["error"]["code"], "AGENT_RUN_GUARD_FAILED");
+        assert_eq!(response.body["guard"]["ready"], false);
+        assert!(response.body["guard"]["issues"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|issue| issue["code"] == "TASK_NOT_ACTIVE"));
+        assert!(!repo.root.join(".vdoc/runs").exists());
+    }
+
+    #[tokio::test]
+    async fn approve_prompt_endpoint_updates_run_and_records_event() {
+        let repo = TestRepo::new("approve-prompt");
+        repo.seed();
+        let prepared = post_json(
+            api_router(repo.path()),
+            "/api/tasks/28/prepare-codex",
+            json!({}),
+        )
+        .await;
+        let run_id = prepared.body["run"]["run_id"].as_str().unwrap();
+
+        let approved = post_json(
+            api_router(repo.path()),
+            &format!("/api/runs/{run_id}/approve-prompt"),
+            json!({}),
+        )
+        .await;
+
+        assert_eq!(approved.status, StatusCode::OK);
+        assert_eq!(approved.body["status"], "prompt-approved");
+        let events_path = repo
+            .root
+            .join(approved.body["artifacts"]["events"].as_str().unwrap());
+        let events = fs::read_to_string(events_path).unwrap();
+        assert!(events.contains("\"event\":\"prompt-approved\""));
+
+        let second = post_json(
+            api_router(repo.path()),
+            &format!("/api/runs/{run_id}/approve-prompt"),
+            json!({}),
+        )
+        .await;
+        assert_eq!(second.status, StatusCode::CONFLICT);
+        assert_eq!(second.body["error"]["code"], "AGENT_RUN_INVALID_STATUS");
     }
 
     #[tokio::test]
