@@ -123,6 +123,11 @@ pub struct AgentRunExecution {
     pub diff: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AgentRunReview {
+    pub content: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "event", rename_all = "kebab-case")]
 pub enum AgentRunStreamEvent {
@@ -383,6 +388,18 @@ pub fn write_agent_run_prompt(run: &AgentRun, prompt: &str) -> Result<(), AgentR
     })
 }
 
+pub fn read_agent_run_artifact(path: impl AsRef<Path>) -> Result<String, AgentRunStorageError> {
+    let path = path.as_ref();
+    match fs::read_to_string(path) {
+        Ok(content) => Ok(content),
+        Err(source) if source.kind() == io::ErrorKind::NotFound => Ok(String::new()),
+        Err(source) => Err(AgentRunStorageError::ReadFile {
+            path: path.to_path_buf(),
+            source,
+        }),
+    }
+}
+
 pub fn approve_agent_run_prompt(
     root: impl AsRef<Path>,
     run_id: impl AsRef<str>,
@@ -410,6 +427,49 @@ pub fn approve_agent_run_prompt(
     write_agent_run_metadata(&run)?;
 
     Ok(run)
+}
+
+pub fn write_agent_run_review(
+    root: impl AsRef<Path>,
+    run_id: impl AsRef<str>,
+    content: impl AsRef<str>,
+) -> Result<AgentRunReview, AgentRunStorageError> {
+    let run = read_agent_run_metadata(root, run_id)?;
+    if !matches!(
+        run.status,
+        AgentRunStatus::Succeeded | AgentRunStatus::Accepted | AgentRunStatus::Rejected
+    ) {
+        return Err(AgentRunStorageError::InvalidRunStatus {
+            run_id: run.run_id,
+            status: run.status,
+            expected: AgentRunStatus::Succeeded.as_str(),
+        });
+    }
+
+    let content = content.as_ref();
+    fs::write(&run.artifacts.review, content).map_err(|source| {
+        AgentRunStorageError::WriteFile {
+            path: run.artifacts.review.clone(),
+            source,
+        }
+    })?;
+    Ok(AgentRunReview {
+        content: content.to_owned(),
+    })
+}
+
+pub fn accept_agent_run(
+    root: impl AsRef<Path>,
+    run_id: impl AsRef<str>,
+) -> Result<AgentRun, AgentRunStorageError> {
+    transition_completed_agent_run(root, run_id, AgentRunStatus::Accepted, "accepted")
+}
+
+pub fn reject_agent_run(
+    root: impl AsRef<Path>,
+    run_id: impl AsRef<str>,
+) -> Result<AgentRun, AgentRunStorageError> {
+    transition_completed_agent_run(root, run_id, AgentRunStatus::Rejected, "rejected")
 }
 
 pub fn append_agent_run_event(
@@ -654,6 +714,24 @@ pub fn preflight_agent_run_execution(
         });
     }
 
+    Ok(run)
+}
+
+fn transition_completed_agent_run(
+    root: impl AsRef<Path>,
+    run_id: impl AsRef<str>,
+    status: AgentRunStatus,
+    event_name: impl Into<String>,
+) -> Result<AgentRun, AgentRunStorageError> {
+    let mut run = read_agent_run_metadata(root, run_id)?;
+    if run.status != AgentRunStatus::Succeeded {
+        return Err(AgentRunStorageError::InvalidRunStatus {
+            run_id: run.run_id,
+            status: run.status,
+            expected: AgentRunStatus::Succeeded.as_str(),
+        });
+    }
+    transition_agent_run(&mut run, status, event_name)?;
     Ok(run)
 }
 
@@ -1261,6 +1339,86 @@ depends_on: []
             approve_agent_run_prompt(repo.path(), &prepared.run.run_id),
             Err(AgentRunStorageError::InvalidRunStatus { .. })
         ));
+    }
+
+    #[test]
+    fn writes_review_for_completed_runs() {
+        let repo = TestRepo::new("review");
+        let mut run = create_agent_run(
+            repo.path(),
+            CreateAgentRunOptions {
+                task_id: DocumentId::new(41).unwrap(),
+                agent_kind: "codex".to_owned(),
+                worktree_path: None,
+            },
+        )
+        .unwrap();
+
+        assert!(matches!(
+            write_agent_run_review(repo.path(), &run.run_id, "too early"),
+            Err(AgentRunStorageError::InvalidRunStatus { .. })
+        ));
+
+        run.status = AgentRunStatus::Succeeded;
+        write_agent_run_metadata(&run).unwrap();
+        let review = write_agent_run_review(repo.path(), &run.run_id, "Looks good.").unwrap();
+
+        assert_eq!(review.content, "Looks good.");
+        assert_eq!(
+            fs::read_to_string(&run.artifacts.review).unwrap(),
+            "Looks good."
+        );
+    }
+
+    #[test]
+    fn accepts_succeeded_runs_without_completing_task() {
+        let repo = TestRepo::new("accept-run");
+        repo.seed_ready_task();
+        let mut run = create_agent_run(
+            repo.path(),
+            CreateAgentRunOptions {
+                task_id: DocumentId::new(39).unwrap(),
+                agent_kind: "codex".to_owned(),
+                worktree_path: None,
+            },
+        )
+        .unwrap();
+        run.status = AgentRunStatus::Succeeded;
+        write_agent_run_metadata(&run).unwrap();
+
+        let accepted = accept_agent_run(repo.path(), &run.run_id).unwrap();
+
+        assert_eq!(accepted.status, AgentRunStatus::Accepted);
+        let task = fs::read_to_string(repo.path().join("docs/tasks/active/39-agent.md")).unwrap();
+        assert!(task.contains("status: planned"));
+        let events = fs::read_to_string(&accepted.artifacts.events).unwrap();
+        assert!(events.contains("\"event\":\"accepted\""));
+        assert!(matches!(
+            accept_agent_run(repo.path(), &run.run_id),
+            Err(AgentRunStorageError::InvalidRunStatus { .. })
+        ));
+    }
+
+    #[test]
+    fn rejects_succeeded_runs() {
+        let repo = TestRepo::new("reject-run");
+        let mut run = create_agent_run(
+            repo.path(),
+            CreateAgentRunOptions {
+                task_id: DocumentId::new(41).unwrap(),
+                agent_kind: "codex".to_owned(),
+                worktree_path: None,
+            },
+        )
+        .unwrap();
+        run.status = AgentRunStatus::Succeeded;
+        write_agent_run_metadata(&run).unwrap();
+
+        let rejected = reject_agent_run(repo.path(), &run.run_id).unwrap();
+
+        assert_eq!(rejected.status, AgentRunStatus::Rejected);
+        let events = fs::read_to_string(&rejected.artifacts.events).unwrap();
+        assert!(events.contains("\"event\":\"rejected\""));
     }
 
     #[test]

@@ -3,7 +3,7 @@ id: 41
 title: Build agent run review and acceptance UI
 kind: task
 type: feature
-status: planned
+status: done
 priority: medium
 specs:
 - 11
@@ -12,6 +12,8 @@ designs:
 - 35
 depends_on:
 - 40
+started_at: 2026-06-10
+completed_at: 2026-06-10
 ---
 
 ## Goal
@@ -38,19 +40,19 @@ accepting or rejecting run results.
 
 ## Checklist
 
-- [ ] Run detail UI shows prompt, logs, and diff.
-- [ ] AI review output can be generated or attached.
-- [ ] Accept and reject actions are explicit.
-- [ ] Accepted runs do not automatically complete the task.
-- [ ] Tests cover review and acceptance behavior.
+- [x] Run detail UI shows prompt, logs, and diff.
+- [x] AI review output can be generated or attached.
+- [x] Accept and reject actions are explicit.
+- [x] Accepted runs do not automatically complete the task.
+- [x] Tests cover review and acceptance behavior.
 
 ## Done Criteria
 
-- [ ] Related specs are satisfied.
-- [ ] Related designs are followed.
-- [ ] Related ADRs are not violated.
-- [ ] Tests pass.
+- [x] Related specs are satisfied.
+- [x] Related designs are followed.
+- [x] Related ADRs are not violated.
+- [x] Tests pass.
 
 ## Result
 
-Not implemented.
+Implemented agent run review APIs and Web UI support for reviewing prompt, logs, diff, review output, and explicit accept/reject decisions without task auto-completion.

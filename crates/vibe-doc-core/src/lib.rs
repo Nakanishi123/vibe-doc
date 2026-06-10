@@ -14,16 +14,18 @@ mod task_index;
 mod validation;
 
 pub use agent_run::{
-    agent_run_artifacts, agent_runs_dir, agent_worktree_name, agent_worktree_path,
-    agent_worktrees_dir, allocate_agent_run_id, append_agent_run_event, approve_agent_run_prompt,
-    cleanup_agent_run_worktree, create_agent_run, create_agent_run_artifact_dir,
-    create_agent_run_worktree, execute_agent_run, find_repository_root,
-    preflight_agent_run_execution, prepare_agent_run, read_agent_run_metadata,
-    validate_agent_worktree_path, write_agent_run_metadata, write_agent_run_prompt, AgentCommand,
-    AgentRun, AgentRunArtifacts, AgentRunEvent, AgentRunExecution, AgentRunExitResult,
-    AgentRunStatus, AgentRunStorageError, AgentRunStreamEvent, CreateAgentRunOptions,
-    PrepareAgentRunOptions, PreparedAgentRun, DIFF_FILE, EVENTS_FILE, PROMPT_FILE, REVIEW_FILE,
-    RUNS_DIR, RUN_JSON_FILE, TERMINAL_LOG_FILE, VDOC_DIR, WORKTREES_DIR,
+    accept_agent_run, agent_run_artifacts, agent_runs_dir, agent_worktree_name,
+    agent_worktree_path, agent_worktrees_dir, allocate_agent_run_id, append_agent_run_event,
+    approve_agent_run_prompt, cleanup_agent_run_worktree, create_agent_run,
+    create_agent_run_artifact_dir, create_agent_run_worktree, execute_agent_run,
+    find_repository_root, preflight_agent_run_execution, prepare_agent_run,
+    read_agent_run_artifact, read_agent_run_metadata, reject_agent_run,
+    validate_agent_worktree_path, write_agent_run_metadata, write_agent_run_prompt,
+    write_agent_run_review, AgentCommand, AgentRun, AgentRunArtifacts, AgentRunEvent,
+    AgentRunExecution, AgentRunExitResult, AgentRunReview, AgentRunStatus, AgentRunStorageError,
+    AgentRunStreamEvent, CreateAgentRunOptions, PrepareAgentRunOptions, PreparedAgentRun,
+    DIFF_FILE, EVENTS_FILE, PROMPT_FILE, REVIEW_FILE, RUNS_DIR, RUN_JSON_FILE, TERMINAL_LOG_FILE,
+    VDOC_DIR, WORKTREES_DIR,
 };
 pub use allocation::{
     allocate_next_document_id, document_filename, document_relative_path, duplicate_document_ids,

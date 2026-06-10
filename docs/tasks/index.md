@@ -12,7 +12,7 @@ No tasks.
 
 ## Planned
 
-- 41 Build agent run review and acceptance UI
+No tasks.
 
 ## Blocked
 
@@ -43,4 +43,5 @@ No tasks.
 - 38 Implement agent worktree lifecycle
 - 39 Implement agent run preparation and prompt approval APIs
 - 40 Implement agent execution and terminal log streaming
+- 41 Build agent run review and acceptance UI
 - 42 Replace manual Web UI Markdown rendering with a library

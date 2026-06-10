@@ -22,14 +22,16 @@ use std::{
 use thiserror::Error;
 use tokio_stream::wrappers::ReceiverStream;
 use vibe_doc_core::{
-    approve_agent_run_prompt, complete_task, execute_agent_run, preflight_agent_run_execution,
-    prepare_agent_run, rebuild_task_index, scan_repository, start_task, task_context,
-    validate_repository, AdrMetadata, AdrStatus, AgentCommand, AgentRun, AgentRunStorageError,
-    AgentRunStreamEvent, CompleteTaskOptions, DesignMetadata, DocumentId, DocumentMetadata,
-    PrepareAgentRunOptions, Priority, RepositoryDocument, RepositoryScanError, SpecMetadata,
-    TaskContextError, TaskContextItem, TaskContextItemKind, TaskGuardIssue, TaskGuardReport,
-    TaskIndexRebuildError, TaskIndexRebuildOptions, TaskLifecycleError, TaskLifecycleOptions,
-    TaskLifecyclePlan, TaskMetadata, TaskStatus, TaskType, ValidationIssue, ValidationRunError,
+    accept_agent_run, approve_agent_run_prompt, complete_task, execute_agent_run,
+    preflight_agent_run_execution, prepare_agent_run, read_agent_run_artifact,
+    read_agent_run_metadata, rebuild_task_index, reject_agent_run, scan_repository, start_task,
+    task_context, validate_repository, write_agent_run_review, AdrMetadata, AdrStatus,
+    AgentCommand, AgentRun, AgentRunStorageError, AgentRunStreamEvent, CompleteTaskOptions,
+    DesignMetadata, DocumentId, DocumentMetadata, PrepareAgentRunOptions, Priority,
+    RepositoryDocument, RepositoryScanError, SpecMetadata, TaskContextError, TaskContextItem,
+    TaskContextItemKind, TaskGuardIssue, TaskGuardReport, TaskIndexRebuildError,
+    TaskIndexRebuildOptions, TaskLifecycleError, TaskLifecycleOptions, TaskLifecyclePlan,
+    TaskMetadata, TaskStatus, TaskType, ValidationIssue, ValidationRunError,
 };
 
 /// Stable crate identifier used by workspace smoke tests.
@@ -150,7 +152,14 @@ fn api_routes() -> Router<ServerState> {
             "/api/runs/{run_id}/approve-prompt",
             post(approve_prompt_endpoint),
         )
+        .route("/api/runs/{run_id}", get(agent_run_detail_endpoint))
         .route("/api/runs/{run_id}/start", post(start_agent_run_endpoint))
+        .route(
+            "/api/runs/{run_id}/review",
+            post(write_agent_review_endpoint),
+        )
+        .route("/api/runs/{run_id}/accept", post(accept_agent_run_endpoint))
+        .route("/api/runs/{run_id}/reject", post(reject_agent_run_endpoint))
         .route("/api/tasks/{id}/start", post(start_task_endpoint))
         .route("/api/tasks/{id}/complete", post(complete_task_endpoint))
         .route(
@@ -497,6 +506,48 @@ async fn approve_prompt_endpoint(
 ) -> Result<Json<AgentRunResponse>, ApiFailure> {
     let run = approve_agent_run_prompt(state.root(), run_id).map_err(ApiFailure::AgentRun)?;
     Ok(Json(agent_run_response(state.root(), &run)))
+}
+
+async fn agent_run_detail_endpoint(
+    State(state): State<ServerState>,
+    Path(run_id): Path<String>,
+) -> Result<Json<AgentRunDetailResponse>, ApiFailure> {
+    let run = read_agent_run_metadata(state.root(), run_id).map_err(ApiFailure::AgentRun)?;
+    Ok(Json(agent_run_detail_response(state.root(), &run)?))
+}
+
+async fn write_agent_review_endpoint(
+    State(state): State<ServerState>,
+    Path(run_id): Path<String>,
+    body: Option<Json<AgentReviewRequest>>,
+) -> Result<Json<AgentRunDetailResponse>, ApiFailure> {
+    let run = read_agent_run_metadata(state.root(), &run_id).map_err(ApiFailure::AgentRun)?;
+    let request = body.map(|Json(request)| request).unwrap_or_default();
+    let content = request.content.unwrap_or_else(|| {
+        generated_review_content(
+            &run,
+            &read_agent_run_artifact(&run.artifacts.diff).unwrap_or_default(),
+        )
+    });
+    write_agent_run_review(state.root(), &run_id, content).map_err(ApiFailure::AgentRun)?;
+    let run = read_agent_run_metadata(state.root(), run_id).map_err(ApiFailure::AgentRun)?;
+    Ok(Json(agent_run_detail_response(state.root(), &run)?))
+}
+
+async fn accept_agent_run_endpoint(
+    State(state): State<ServerState>,
+    Path(run_id): Path<String>,
+) -> Result<Json<AgentRunDetailResponse>, ApiFailure> {
+    let run = accept_agent_run(state.root(), run_id).map_err(ApiFailure::AgentRun)?;
+    Ok(Json(agent_run_detail_response(state.root(), &run)?))
+}
+
+async fn reject_agent_run_endpoint(
+    State(state): State<ServerState>,
+    Path(run_id): Path<String>,
+) -> Result<Json<AgentRunDetailResponse>, ApiFailure> {
+    let run = reject_agent_run(state.root(), run_id).map_err(ApiFailure::AgentRun)?;
+    Ok(Json(agent_run_detail_response(state.root(), &run)?))
 }
 
 async fn start_agent_run_endpoint(
@@ -984,6 +1035,38 @@ fn agent_run_response(root: &FsPath, run: &AgentRun) -> AgentRunResponse {
     }
 }
 
+fn agent_run_detail_response(
+    root: &FsPath,
+    run: &AgentRun,
+) -> Result<AgentRunDetailResponse, ApiFailure> {
+    Ok(AgentRunDetailResponse {
+        run: agent_run_response(root, run),
+        prompt: read_agent_run_artifact(&run.artifacts.prompt).map_err(ApiFailure::AgentRun)?,
+        terminal_log: read_agent_run_artifact(&run.artifacts.terminal_log)
+            .map_err(ApiFailure::AgentRun)?,
+        diff: read_agent_run_artifact(&run.artifacts.diff).map_err(ApiFailure::AgentRun)?,
+        review: read_agent_run_artifact(&run.artifacts.review).map_err(ApiFailure::AgentRun)?,
+    })
+}
+
+fn generated_review_content(run: &AgentRun, diff: &str) -> String {
+    let changed_files = diff
+        .lines()
+        .filter_map(|line| line.strip_prefix("diff --git a/"))
+        .filter_map(|line| line.split(" b/").next())
+        .collect::<Vec<_>>();
+    let file_summary = if changed_files.is_empty() {
+        "No changed files were captured in diff.patch.".to_owned()
+    } else {
+        format!("Changed files: {}.", changed_files.join(", "))
+    };
+
+    format!(
+        "# Agent Run Review\n\nRun `{}` finished with status `{}`.\n\n{}\n\nReview decision still requires explicit user acceptance or rejection.\n",
+        run.run_id, run.status, file_summary
+    )
+}
+
 fn task_guard_response(root: &FsPath, report: &TaskGuardReport) -> TaskGuardResponse {
     TaskGuardResponse {
         task_id: report.task_id.get(),
@@ -1185,6 +1268,15 @@ struct AgentRunResponse {
 }
 
 #[derive(Debug, Serialize)]
+struct AgentRunDetailResponse {
+    run: AgentRunResponse,
+    prompt: String,
+    terminal_log: String,
+    diff: String,
+    review: String,
+}
+
+#[derive(Debug, Serialize)]
 struct AgentRunArtifactsResponse {
     directory: String,
     run_json: String,
@@ -1215,6 +1307,11 @@ struct TaskGuardIssueResponse {
 #[derive(Debug, Deserialize, Default)]
 struct StartAgentRunRequest {
     command: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct AgentReviewRequest {
+    content: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -2145,6 +2242,71 @@ mod tests {
         assert_eq!(
             unsupported.body["error"]["code"],
             "AGENT_RUN_UNSUPPORTED_COMMAND"
+        );
+    }
+
+    #[tokio::test]
+    async fn agent_run_detail_review_and_acceptance_endpoints_update_review_state_only() {
+        let repo = TestRepo::new("agent-run-review");
+        repo.seed();
+        let router = api_router(repo.path());
+        let prepared = post_json(router.clone(), "/api/tasks/28/prepare-codex", json!({})).await;
+        let run_id = prepared.body["run"]["run_id"].as_str().unwrap();
+        let run_json_path = repo.root.join(format!(".vdoc/runs/{run_id}/run.json"));
+        let mut run: AgentRun =
+            serde_json::from_str(&fs::read_to_string(&run_json_path).unwrap()).unwrap();
+        run.status = vibe_doc_core::AgentRunStatus::Succeeded;
+        vibe_doc_core::write_agent_run_metadata(&run).unwrap();
+        fs::write(&run.artifacts.terminal_log, "terminal output\n").unwrap();
+        fs::write(
+            &run.artifacts.diff,
+            "diff --git a/server-output.txt b/server-output.txt\n+changed\n",
+        )
+        .unwrap();
+
+        let detail = request_json(router.clone(), &format!("/api/runs/{run_id}")).await;
+        assert_eq!(detail.status, StatusCode::OK);
+        assert_eq!(detail.body["run"]["status"], "succeeded");
+        assert!(detail.body["prompt"]
+            .as_str()
+            .is_some_and(|prompt| prompt.contains("### Task 28: API")));
+        assert_eq!(detail.body["terminal_log"], "terminal output\n");
+        assert!(detail.body["diff"]
+            .as_str()
+            .is_some_and(|diff| diff.contains("server-output.txt")));
+
+        let reviewed = post_json(
+            router.clone(),
+            &format!("/api/runs/{run_id}/review"),
+            json!({}),
+        )
+        .await;
+        assert_eq!(reviewed.status, StatusCode::OK);
+        assert!(reviewed.body["review"]
+            .as_str()
+            .is_some_and(|review| review.contains("Changed files: server-output.txt.")));
+        assert!(repo
+            .root
+            .join(format!(".vdoc/runs/{run_id}/review.md"))
+            .is_file());
+
+        let accepted = post_json(
+            router.clone(),
+            &format!("/api/runs/{run_id}/accept"),
+            json!({}),
+        )
+        .await;
+        assert_eq!(accepted.status, StatusCode::OK);
+        assert_eq!(accepted.body["run"]["status"], "accepted");
+        let task = fs::read_to_string(repo.root.join("docs/tasks/active/28-api.md")).unwrap();
+        assert!(task.contains("status: planned"));
+
+        let second_accept =
+            post_json(router, &format!("/api/runs/{run_id}/accept"), json!({})).await;
+        assert_eq!(second_accept.status, StatusCode::CONFLICT);
+        assert_eq!(
+            second_accept.body["error"]["code"],
+            "AGENT_RUN_INVALID_STATUS"
         );
     }
 

@@ -17,6 +17,16 @@ export type ValidationSeverity = "error" | "warning" | "info";
 
 export type ValidationStatus = "ok" | "warning" | "error" | "unknown";
 
+export type AgentRunStatus =
+  | "prepared"
+  | "prompt-approved"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "cancelled"
+  | "rejected"
+  | "accepted";
+
 export interface ApiRoute {
   method: "GET" | "POST";
   path: string;
@@ -134,6 +144,54 @@ export interface TaskContextFile {
   path: string;
   role: "instructions" | "task" | "spec" | "design" | "adr";
   content: string;
+}
+
+export interface PrepareAgentRunResponse {
+  run: AgentRun;
+  guard: TaskGuardReport;
+  prompt: string;
+}
+
+export interface AgentRunDetailResponse {
+  run: AgentRun;
+  prompt: string;
+  terminal_log: string;
+  diff: string;
+  review: string;
+}
+
+export interface AgentRun {
+  task_id: number;
+  run_id: string;
+  agent_kind: string;
+  status: AgentRunStatus;
+  worktree_path?: string;
+  created_at: string;
+  updated_at: string;
+  artifacts: AgentRunArtifacts;
+}
+
+export interface AgentRunArtifacts {
+  directory: string;
+  run_json: string;
+  prompt: string;
+  events: string;
+  terminal_log: string;
+  diff: string;
+  review: string;
+}
+
+export interface TaskGuardReport {
+  task_id: number;
+  ready: boolean;
+  issues: TaskGuardIssue[];
+}
+
+export interface TaskGuardIssue {
+  code: string;
+  message: string;
+  document_id?: number;
+  path?: string;
 }
 
 export interface TaskMutationRequest {
