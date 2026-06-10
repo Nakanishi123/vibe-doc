@@ -12,7 +12,7 @@ No tasks.
 
 ## Planned
 
-- 37 Implement agent run storage under git vdoc runs
+- 37 Implement agent run storage under .vdoc runs
 - 38 Implement agent worktree lifecycle
 - 39 Implement agent run preparation and prompt approval APIs
 - 40 Implement agent execution and terminal log streaming

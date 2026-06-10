@@ -50,4 +50,4 @@ Define and prototype the safe boundary for future Codex or agent integration.
 
 ## Result
 
-Recorded the controlled agent workflow decisions in design 35 and spec 12. Defined AgentRun as a task-scoped execution record, selected .git/vdoc/runs/<run-id>/ for runtime artifacts, made managed runs use isolated Git worktrees, documented approval points, and split follow-up implementation tasks 37-41.
+Recorded the controlled agent workflow decisions in design 35 and spec 12. Defined AgentRun as a task-scoped execution record, selected .vdoc/runs/<run-id>/ for runtime artifacts, made managed runs use isolated Git worktrees, documented approval points, and split follow-up implementation tasks 37-41.

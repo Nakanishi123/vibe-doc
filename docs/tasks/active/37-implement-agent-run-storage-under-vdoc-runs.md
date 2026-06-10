@@ -1,6 +1,6 @@
 ---
 id: 37
-title: Implement agent run storage under git vdoc runs
+title: Implement agent run storage under .vdoc runs
 kind: task
 type: feature
 status: planned
@@ -16,16 +16,16 @@ depends_on:
 ## Goal
 
 Implement the storage foundation for task-scoped agent runs, using
-`.git/vdoc/runs/` as the repository-local runtime area for run metadata,
-approved prompts, logs, and captured diffs.
+`.vdoc/runs/` as the repository-local runtime area for run metadata, approved
+prompts, logs, and captured diffs.
 
 ## Scope
 
 - Define an `AgentRun` data model that records task ID, run ID, agent kind,
   status, worktree path, timestamps, exit result, and artifact paths.
-- Store agent run artifacts under `.git/vdoc/runs/<run-id>/`.
-- Add core helpers for locating the repository Git directory and creating run
-  artifact directories safely.
+- Store agent run artifacts under `.vdoc/runs/<run-id>/`.
+- Add core helpers for locating the repository root and creating run artifact
+  directories safely.
 - Define the expected artifact files, including `run.json`, `prompt.md`,
   `events.ndjson`, `terminal.log`, and `diff.patch`.
 - Ensure run artifacts are outside normal document scanning and do not appear
@@ -44,7 +44,7 @@ approved prompts, logs, and captured diffs.
 ## Checklist
 
 - [ ] `AgentRun` status and metadata shape are implemented.
-- [ ] `.git/vdoc/runs/<run-id>/` artifact directory creation is implemented.
+- [ ] `.vdoc/runs/<run-id>/` artifact directory creation is implemented.
 - [ ] Expected artifact file names are documented in code or tests.
 - [ ] Runtime artifacts are excluded from Markdown document scanning.
 - [ ] Tests cover artifact creation and path safety.

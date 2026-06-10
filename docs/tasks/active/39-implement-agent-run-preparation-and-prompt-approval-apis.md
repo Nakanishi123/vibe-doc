@@ -22,7 +22,7 @@ generated prompt before execution.
 
 - Add a prepare endpoint that runs task guard and task context collection.
 - Generate a task-oriented prompt from the structured context contract.
-- Persist `prompt.md` and initial `run.json` under `.git/vdoc/runs/<run-id>/`.
+- Persist `prompt.md` and initial `run.json` under `.vdoc/runs/<run-id>/`.
 - Return the generated prompt and run metadata to the Web UI.
 - Add an explicit prompt approval mutation that records an approval event.
 - Add tests for guard failures, prompt generation, artifact writes, and approval

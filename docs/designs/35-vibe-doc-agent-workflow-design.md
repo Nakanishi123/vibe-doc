@@ -71,8 +71,8 @@ point remains the task ID.
 ## Agent Run Artifacts
 
 Managed agent runs should store runtime artifacts under
-`.git/vdoc/runs/<run-id>/`. This keeps live execution state tied to the
-repository while keeping it out of normal document scanning and Git diffs.
+`.vdoc/runs/<run-id>/`. This keeps live execution state tied to the repository
+while keeping it out of normal document scanning and Git diffs.
 
 Expected artifacts:
 
@@ -155,7 +155,7 @@ Agent workflows should require explicit approval at these points:
 3. System builds context.
 4. System generates or displays a prompt.
 5. User approves execution.
-6. System creates an `AgentRun` under `.git/vdoc/runs/<run-id>/`.
+6. System creates an `AgentRun` under `.vdoc/runs/<run-id>/`.
 7. System creates or selects an isolated Git worktree.
 8. Agent runs in the worktree.
 9. System records logs, events, and changed files.
