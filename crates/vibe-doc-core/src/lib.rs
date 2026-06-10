@@ -1,5 +1,6 @@
 //! Shared core logic for vibe-doc.
 
+mod agent_run;
 mod allocation;
 mod document;
 mod init;
@@ -12,6 +13,13 @@ mod task_context;
 mod task_index;
 mod validation;
 
+pub use agent_run::{
+    agent_run_artifacts, agent_runs_dir, allocate_agent_run_id, create_agent_run,
+    create_agent_run_artifact_dir, find_repository_root, write_agent_run_metadata, AgentRun,
+    AgentRunArtifacts, AgentRunExitResult, AgentRunStatus, AgentRunStorageError,
+    CreateAgentRunOptions, DIFF_FILE, EVENTS_FILE, PROMPT_FILE, REVIEW_FILE, RUNS_DIR,
+    RUN_JSON_FILE, TERMINAL_LOG_FILE, VDOC_DIR,
+};
 pub use allocation::{
     allocate_next_document_id, document_filename, document_relative_path, duplicate_document_ids,
     next_document_id, slugify_title, sorted_document_ids, DocumentLocation, DuplicateDocumentId,

@@ -12,7 +12,6 @@ No tasks.
 
 ## Planned
 
-- 37 Implement agent run storage under .vdoc runs
 - 38 Implement agent worktree lifecycle
 - 39 Implement agent run preparation and prompt approval APIs
 - 40 Implement agent execution and terminal log streaming
@@ -43,4 +42,5 @@ No tasks.
 - 31 Build read-only task and ADR views
 - 32 Prepare controlled agent integration workflow
 - 36 Implement vdoc server command and SPA serving
+- 37 Implement agent run storage under .vdoc runs
 - 42 Replace manual Web UI Markdown rendering with a library

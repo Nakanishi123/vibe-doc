@@ -1,9 +1,9 @@
 use serde::de::{self, Visitor};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Positive global document identifier.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 pub struct DocumentId(u64);
 
 impl DocumentId {

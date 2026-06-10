@@ -3,7 +3,7 @@ id: 37
 title: Implement agent run storage under .vdoc runs
 kind: task
 type: feature
-status: planned
+status: done
 priority: medium
 specs:
 - 12
@@ -11,6 +11,8 @@ designs:
 - 35
 depends_on:
 - 32
+started_at: 2026-06-10
+completed_at: 2026-06-10
 ---
 
 ## Goal
@@ -43,19 +45,19 @@ prompts, logs, and captured diffs.
 
 ## Checklist
 
-- [ ] `AgentRun` status and metadata shape are implemented.
-- [ ] `.vdoc/runs/<run-id>/` artifact directory creation is implemented.
-- [ ] Expected artifact file names are documented in code or tests.
-- [ ] Runtime artifacts are excluded from Markdown document scanning.
-- [ ] Tests cover artifact creation and path safety.
+- [x] `AgentRun` status and metadata shape are implemented.
+- [x] `.vdoc/runs/<run-id>/` artifact directory creation is implemented.
+- [x] Expected artifact file names are documented in code or tests.
+- [x] Runtime artifacts are excluded from Markdown document scanning.
+- [x] Tests cover artifact creation and path safety.
 
 ## Done Criteria
 
-- [ ] Related specs are satisfied.
-- [ ] Related designs are followed.
-- [ ] Related ADRs are not violated.
-- [ ] Tests pass.
+- [x] Related specs are satisfied.
+- [x] Related designs are followed.
+- [x] Related ADRs are not violated.
+- [x] Tests pass.
 
 ## Result
 
-Not implemented.
+Implemented core AgentRun storage under .vdoc/runs with path-safe run ID allocation, expected artifact path helpers, run.json metadata persistence, repository-root discovery, .vdoc/runs Git ignore coverage, and tests for allocation, artifact creation, safety, scanning exclusion, and non-worktree root discovery.
