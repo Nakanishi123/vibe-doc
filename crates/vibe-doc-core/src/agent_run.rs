@@ -4,10 +4,12 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 use std::path::{Component, Path, PathBuf};
+use std::process::Command;
 use thiserror::Error;
 
 pub const VDOC_DIR: &str = ".vdoc";
 pub const RUNS_DIR: &str = "runs";
+pub const WORKTREES_DIR: &str = "worktrees";
 pub const RUN_JSON_FILE: &str = "run.json";
 pub const PROMPT_FILE: &str = "prompt.md";
 pub const EVENTS_FILE: &str = "events.ndjson";
@@ -102,6 +104,12 @@ pub enum AgentRunStorageError {
     Serialize(#[source] serde_json::Error),
     #[error("could not allocate a unique agent run ID under {}", runs_dir.display())]
     ExhaustedRunIds { runs_dir: PathBuf },
+    #[error("agent worktree path {} is outside {}", path.display(), allowed_dir.display())]
+    UnsafeWorktreePath { path: PathBuf, allowed_dir: PathBuf },
+    #[error("agent worktree path {} already exists", path.display())]
+    WorktreePathExists { path: PathBuf },
+    #[error("git worktree command failed: {message}")]
+    GitWorktree { message: String },
 }
 
 pub fn find_repository_root(start: impl AsRef<Path>) -> Result<PathBuf, AgentRunStorageError> {
@@ -127,6 +135,10 @@ pub fn find_repository_root(start: impl AsRef<Path>) -> Result<PathBuf, AgentRun
 
 pub fn agent_runs_dir(root: impl AsRef<Path>) -> PathBuf {
     root.as_ref().join(VDOC_DIR).join(RUNS_DIR)
+}
+
+pub fn agent_worktrees_dir(root: impl AsRef<Path>) -> PathBuf {
+    root.as_ref().join(VDOC_DIR).join(WORKTREES_DIR)
 }
 
 pub fn allocate_agent_run_id(
@@ -212,6 +224,156 @@ pub fn write_agent_run_metadata(run: &AgentRun) -> Result<(), AgentRunStorageErr
             source,
         }
     })
+}
+
+pub fn agent_worktree_name(
+    task_id: DocumentId,
+    run_id: impl AsRef<str>,
+) -> Result<String, AgentRunStorageError> {
+    let run_id = run_id.as_ref();
+    if !is_safe_run_id(run_id) {
+        return Err(AgentRunStorageError::UnsafeRunId {
+            run_id: run_id.to_string(),
+        });
+    }
+
+    Ok(format!("task-{}-{run_id}", task_id.get()))
+}
+
+pub fn agent_worktree_path(
+    root: impl AsRef<Path>,
+    task_id: DocumentId,
+    run_id: impl AsRef<str>,
+) -> Result<PathBuf, AgentRunStorageError> {
+    let name = agent_worktree_name(task_id, run_id)?;
+    Ok(agent_worktrees_dir(root).join(name))
+}
+
+pub fn validate_agent_worktree_path(
+    root: impl AsRef<Path>,
+    path: impl AsRef<Path>,
+) -> Result<PathBuf, AgentRunStorageError> {
+    let root = root.as_ref();
+    let path = path.as_ref();
+    let allowed_dir = agent_worktrees_dir(root);
+
+    let relative_path = if path.is_absolute() {
+        path.strip_prefix(root).ok()
+    } else {
+        Some(path)
+    }
+    .ok_or_else(|| AgentRunStorageError::UnsafeWorktreePath {
+        path: path.to_path_buf(),
+        allowed_dir: allowed_dir.clone(),
+    })?;
+
+    let mut normalized_relative = PathBuf::new();
+    for component in relative_path.components() {
+        match component {
+            Component::Normal(value) => normalized_relative.push(value),
+            Component::CurDir => {}
+            _ => {
+                return Err(AgentRunStorageError::UnsafeWorktreePath {
+                    path: path.to_path_buf(),
+                    allowed_dir,
+                });
+            }
+        }
+    }
+
+    let required_prefix = Path::new(VDOC_DIR).join(WORKTREES_DIR);
+    if !normalized_relative.starts_with(&required_prefix) || normalized_relative == required_prefix
+    {
+        return Err(AgentRunStorageError::UnsafeWorktreePath {
+            path: path.to_path_buf(),
+            allowed_dir,
+        });
+    }
+
+    Ok(root.join(normalized_relative))
+}
+
+pub fn create_agent_run_worktree(
+    root: impl AsRef<Path>,
+    run: &mut AgentRun,
+) -> Result<PathBuf, AgentRunStorageError> {
+    let root = root.as_ref();
+    let worktree_path = agent_worktree_path(root, run.task_id, &run.run_id)?;
+    let worktree_path = validate_agent_worktree_path(root, &worktree_path)?;
+
+    if worktree_path.exists() {
+        return Err(AgentRunStorageError::WorktreePathExists {
+            path: worktree_path,
+        });
+    }
+
+    fs::create_dir_all(agent_worktrees_dir(root)).map_err(|source| {
+        AgentRunStorageError::CreateDir {
+            path: agent_worktrees_dir(root),
+            source,
+        }
+    })?;
+
+    run_git_worktree(root, ["worktree", "add", "--detach"], &worktree_path)?;
+    run.worktree_path = Some(worktree_path.clone());
+    run.updated_at = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
+    write_agent_run_metadata(run)?;
+
+    Ok(worktree_path)
+}
+
+pub fn cleanup_agent_run_worktree(
+    root: impl AsRef<Path>,
+    run: &mut AgentRun,
+) -> Result<(), AgentRunStorageError> {
+    let root = root.as_ref();
+    let Some(worktree_path) = run.worktree_path.clone() else {
+        return Ok(());
+    };
+    let worktree_path = validate_agent_worktree_path(root, worktree_path)?;
+
+    if worktree_path.exists() {
+        run_git_worktree(root, ["worktree", "remove", "--force"], &worktree_path)?;
+    } else {
+        let _ = Command::new("git")
+            .arg("-C")
+            .arg(root)
+            .args(["worktree", "prune"])
+            .output();
+    }
+
+    run.worktree_path = None;
+    run.updated_at = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
+    write_agent_run_metadata(run)
+}
+
+fn run_git_worktree<const N: usize>(
+    root: &Path,
+    args: [&str; N],
+    path: &Path,
+) -> Result<(), AgentRunStorageError> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .arg(path)
+        .output()
+        .map_err(|source| AgentRunStorageError::GitWorktree {
+            message: source.to_string(),
+        })?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let message = if stderr.trim().is_empty() {
+        stdout.trim().to_string()
+    } else {
+        stderr.trim().to_string()
+    };
+    Err(AgentRunStorageError::GitWorktree { message })
 }
 
 fn is_vibe_doc_root(path: &Path) -> bool {
@@ -313,7 +475,115 @@ mod tests {
         assert_eq!(saved.run_id, run.run_id);
         assert_eq!(saved.agent_kind, "codex");
         assert_eq!(saved.status, AgentRunStatus::Prepared);
+        assert_eq!(saved.worktree_path, run.worktree_path);
         assert_eq!(saved.artifacts.prompt, run.artifacts.prompt);
+    }
+
+    #[test]
+    fn creates_agent_run_worktree_and_records_metadata() {
+        let repo = TestRepo::new("worktree-create");
+        repo.init_git();
+        let mut run = create_agent_run(
+            repo.path(),
+            CreateAgentRunOptions {
+                task_id: DocumentId::new(38).unwrap(),
+                agent_kind: "codex".to_string(),
+                worktree_path: None,
+            },
+        )
+        .unwrap();
+
+        let worktree_path = create_agent_run_worktree(repo.path(), &mut run).unwrap();
+
+        assert!(worktree_path.is_dir());
+        assert_eq!(
+            worktree_path,
+            repo.path()
+                .join(".vdoc/worktrees")
+                .join(format!("task-38-{}", run.run_id))
+        );
+        assert_eq!(run.worktree_path, Some(worktree_path.clone()));
+
+        let raw = fs::read_to_string(&run.artifacts.run_json).unwrap();
+        let saved: AgentRun = serde_json::from_str(&raw).unwrap();
+        assert_eq!(saved.worktree_path, Some(worktree_path));
+    }
+
+    #[test]
+    fn rejects_agent_worktree_paths_outside_execution_area() {
+        let repo = TestRepo::new("worktree-validation");
+
+        for path in [
+            repo.path().join(".vdoc/runs/run-38-example"),
+            repo.path().join("../outside"),
+            PathBuf::from("/tmp/vibe-doc-outside-worktree"),
+            PathBuf::from(".vdoc/worktrees/../runs/example"),
+        ] {
+            let error = validate_agent_worktree_path(repo.path(), path).unwrap_err();
+            assert!(matches!(
+                error,
+                AgentRunStorageError::UnsafeWorktreePath { .. }
+            ));
+        }
+
+        let safe = validate_agent_worktree_path(
+            repo.path(),
+            PathBuf::from(".vdoc/worktrees/task-38-run-38-example"),
+        )
+        .unwrap();
+        assert_eq!(
+            safe,
+            repo.path().join(".vdoc/worktrees/task-38-run-38-example")
+        );
+    }
+
+    #[test]
+    fn refuses_to_create_agent_worktree_when_path_exists() {
+        let repo = TestRepo::new("worktree-conflict");
+        repo.init_git();
+        let mut run = create_agent_run(
+            repo.path(),
+            CreateAgentRunOptions {
+                task_id: DocumentId::new(38).unwrap(),
+                agent_kind: "codex".to_string(),
+                worktree_path: None,
+            },
+        )
+        .unwrap();
+        let path = agent_worktree_path(repo.path(), run.task_id, &run.run_id).unwrap();
+        fs::create_dir_all(&path).unwrap();
+
+        let error = create_agent_run_worktree(repo.path(), &mut run).unwrap_err();
+
+        assert!(matches!(
+            error,
+            AgentRunStorageError::WorktreePathExists { .. }
+        ));
+        assert_eq!(run.worktree_path, None);
+    }
+
+    #[test]
+    fn cleanup_agent_run_worktree_removes_path_and_clears_metadata() {
+        let repo = TestRepo::new("worktree-cleanup");
+        repo.init_git();
+        let mut run = create_agent_run(
+            repo.path(),
+            CreateAgentRunOptions {
+                task_id: DocumentId::new(38).unwrap(),
+                agent_kind: "codex".to_string(),
+                worktree_path: None,
+            },
+        )
+        .unwrap();
+        let worktree_path = create_agent_run_worktree(repo.path(), &mut run).unwrap();
+
+        cleanup_agent_run_worktree(repo.path(), &mut run).unwrap();
+
+        assert!(!worktree_path.exists());
+        assert_eq!(run.worktree_path, None);
+        let raw = fs::read_to_string(&run.artifacts.run_json).unwrap();
+        let saved: AgentRun = serde_json::from_str(&raw).unwrap();
+        assert_eq!(saved.worktree_path, None);
     }
 
     #[test]
@@ -372,6 +642,30 @@ kind: spec
 
         fn mkdir(&self, relative_path: impl AsRef<Path>) {
             fs::create_dir_all(self.root.join(relative_path)).unwrap();
+        }
+
+        fn init_git(&self) {
+            self.run_git(["init"]);
+            self.run_git(["config", "user.email", "vibe-doc@example.invalid"]);
+            self.run_git(["config", "user.name", "vibe-doc tests"]);
+            self.run_git(["config", "commit.gpgsign", "false"]);
+            self.write("README.md", "# Test repo\n");
+            self.run_git(["add", "README.md"]);
+            self.run_git(["commit", "-m", "Initial commit"]);
+        }
+
+        fn run_git<const N: usize>(&self, args: [&str; N]) {
+            let output = Command::new("git")
+                .arg("-C")
+                .arg(&self.root)
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "git command failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
 
         fn write(&self, relative_path: impl AsRef<Path>, content: impl AsRef<str>) {

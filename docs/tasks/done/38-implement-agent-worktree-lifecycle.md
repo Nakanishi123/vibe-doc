@@ -3,7 +3,7 @@ id: 38
 title: Implement agent worktree lifecycle
 kind: task
 type: feature
-status: planned
+status: done
 priority: medium
 specs:
 - 12
@@ -11,6 +11,8 @@ designs:
 - 35
 depends_on:
 - 37
+started_at: 2026-06-10
+completed_at: 2026-06-10
 ---
 
 ## Goal
@@ -37,19 +39,19 @@ Implement the Git worktree lifecycle used by managed agent runs.
 
 ## Checklist
 
-- [ ] Worktree creation is implemented for managed agent runs.
-- [ ] Worktree path validation is implemented.
-- [ ] `AgentRun` metadata records the selected worktree.
-- [ ] Cleanup behavior is implemented.
-- [ ] Tests cover lifecycle success and failure cases.
+- [x] Worktree creation is implemented for managed agent runs.
+- [x] Worktree path validation is implemented.
+- [x] `AgentRun` metadata records the selected worktree.
+- [x] Cleanup behavior is implemented.
+- [x] Tests cover lifecycle success and failure cases.
 
 ## Done Criteria
 
-- [ ] Related specs are satisfied.
-- [ ] Related designs are followed.
-- [ ] Related ADRs are not violated.
-- [ ] Tests pass.
+- [x] Related specs are satisfied.
+- [x] Related designs are followed.
+- [x] Related ADRs are not violated.
+- [x] Tests pass.
 
 ## Result
 
-Not implemented.
+Implemented core managed agent worktree lifecycle helpers under .vdoc/worktrees with deterministic task/run-derived names, repository-local path validation, git worktree creation, AgentRun metadata updates, cleanup that removes worktrees and clears metadata, and tests for creation, path conflicts, validation, and cleanup.
