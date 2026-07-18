@@ -1,6 +1,6 @@
 ---
 vibedoc: 1
-id: DEC-006
+id: DEC-0006
 kind: decision
 decision_type: operations
 status: accepted
@@ -9,8 +9,8 @@ tags:
   - workflow
   - validation
 related:
-  - ARCH-002
-  - ARCH-004
+  - ARCH-0002
+  - ARCH-0004
 ---
 
 # lintを緩い検査に限定する

@@ -1,6 +1,6 @@
 ---
 vibedoc: 1
-id: DEC-004
+id: DEC-0004
 kind: decision
 decision_type: architecture
 status: accepted
@@ -10,8 +10,8 @@ tags:
   - web-ui
   - distribution
 related:
-  - ARCH-001
-  - ARCH-003
+  - ARCH-0001
+  - ARCH-0003
 ---
 
 # React Web UIをRustバイナリへ埋め込む

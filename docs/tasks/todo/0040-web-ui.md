@@ -1,6 +1,6 @@
 ---
 vibedoc: 1
-id: TASK-040
+id: TASK-0040
 kind: task
 status: todo
 tags:
@@ -9,12 +9,12 @@ tags:
   - tags
   - search
 related:
-  - ARCH-003
-  - DEC-002
-  - DEC-004
+  - ARCH-0003
+  - DEC-0002
+  - DEC-0004
 depends_on:
-  - TASK-010
-  - TASK-020
+  - TASK-0010
+  - TASK-0020
 ---
 
 # 読み取り専用Web UIを実装する

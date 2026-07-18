@@ -1,6 +1,6 @@
 ---
 vibedoc: 1
-id: ARCH-004
+id: ARCH-0004
 kind: architecture
 tags:
   - vibe-doc
@@ -9,9 +9,9 @@ tags:
   - tags
   - next-index
 related:
-  - ARCH-001
-  - ARCH-002
-  - DEC-006
+  - ARCH-0001
+  - ARCH-0002
+  - DEC-0006
 ---
 
 # CLIとlint
@@ -67,13 +67,13 @@ lintは次を確認する。
 
 対象文書のファイル名またはIDから最大の数値部分を読み取る。
 
-- Decision: 最大値に`1`を加えて3桁で返す。
-- Task: 最大値に`10`を加えて3桁で返す。
+- Decision: 最大値に`1`を加えて4桁で返す。
+- Task: 最大値に`10`を加えて4桁で返す。
 - 文書ファイルは作成しない。
 
 ```text
-DEC-001, DEC-002, DEC-007   → vibe-doc next-index decision → 008
-TASK-120, TASK-130, TASK-140 → vibe-doc next-index task     → 150
+DEC-0001, DEC-0002, DEC-0007   → vibe-doc next-index decision → 0008
+TASK-0120, TASK-0130, TASK-0140 → vibe-doc next-index task     → 0150
 ```
 
 ブランチ間の採番衝突は許容し、重複IDをlintで検出する。ロックや中央採番サーバーは作らない。

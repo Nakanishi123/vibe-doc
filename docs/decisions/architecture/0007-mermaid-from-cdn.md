@@ -1,6 +1,6 @@
 ---
 vibedoc: 1
-id: DEC-007
+id: DEC-0007
 kind: decision
 decision_type: architecture
 status: accepted
@@ -9,7 +9,7 @@ tags:
   - markdown
   - cdn
 related:
-  - ARCH-003
+  - ARCH-0003
 ---
 
 # MermaidをCDNから読み込んで描画する

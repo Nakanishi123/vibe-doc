@@ -1,6 +1,6 @@
 ---
 vibedoc: 1
-id: TASK-020
+id: TASK-0020
 kind: task
 status: todo
 tags:
@@ -8,10 +8,10 @@ tags:
   - index
   - backlinks
 related:
-  - ARCH-002
-  - DEC-003
+  - ARCH-0002
+  - DEC-0003
 depends_on:
-  - TASK-010
+  - TASK-0010
 ---
 
 # メモリ上のインデックスと逆引きを構築する

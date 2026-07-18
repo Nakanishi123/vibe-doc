@@ -1,6 +1,6 @@
 ---
 vibedoc: 1
-id: DEC-001
+id: DEC-0001
 kind: decision
 decision_type: architecture
 status: accepted
@@ -9,8 +9,8 @@ tags:
   - storage
   - git
 related:
-  - ARCH-001
-  - ARCH-002
+  - ARCH-0001
+  - ARCH-0002
 ---
 
 # Markdownを文書の正本にする

@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-/// A Markdown file managed by vibe-doc.
+/// vibe-docが管理するMarkdownファイル。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Document {
     pub path: PathBuf,

@@ -1,1 +1,1 @@
-//! Axum routes for `/api` will be defined here.
+//! `/api` 用のAxumルートを定義する。

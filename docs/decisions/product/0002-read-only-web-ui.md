@@ -1,6 +1,6 @@
 ---
 vibedoc: 1
-id: DEC-002
+id: DEC-0002
 kind: decision
 decision_type: product
 status: accepted
@@ -9,8 +9,8 @@ tags:
   - web-ui
   - read-only
 related:
-  - ARCH-001
-  - ARCH-003
+  - ARCH-0001
+  - ARCH-0003
 ---
 
 # Web UIを読み取り専用にする

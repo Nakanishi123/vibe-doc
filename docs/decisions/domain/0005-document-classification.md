@@ -1,6 +1,6 @@
 ---
 vibedoc: 1
-id: DEC-005
+id: DEC-0005
 kind: decision
 decision_type: domain
 status: accepted
@@ -10,7 +10,7 @@ tags:
   - task
   - taxonomy
 related:
-  - ARCH-002
+  - ARCH-0002
 ---
 
 # Decision、ADR、Taskの分類を定める

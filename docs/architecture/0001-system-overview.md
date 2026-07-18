@@ -1,6 +1,6 @@
 ---
 vibedoc: 1
-id: ARCH-001
+id: ARCH-0001
 kind: architecture
 tags:
   - vibe-doc
@@ -8,13 +8,13 @@ tags:
   - rust
   - react
 related:
-  - ARCH-002
-  - ARCH-003
-  - ARCH-004
-  - DEC-001
-  - DEC-002
-  - DEC-003
-  - DEC-004
+  - ARCH-0002
+  - ARCH-0003
+  - ARCH-0004
+  - DEC-0001
+  - DEC-0002
+  - DEC-0003
+  - DEC-0004
 ---
 
 # システム概要

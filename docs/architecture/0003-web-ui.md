@@ -1,6 +1,6 @@
 ---
 vibedoc: 1
-id: ARCH-003
+id: ARCH-0003
 kind: architecture
 tags:
   - vibe-doc
@@ -9,11 +9,11 @@ tags:
   - tags
   - mermaid
 related:
-  - ARCH-001
-  - ARCH-002
-  - DEC-002
-  - DEC-004
-  - DEC-007
+  - ARCH-0001
+  - ARCH-0002
+  - DEC-0002
+  - DEC-0004
+  - DEC-0007
 ---
 
 # Web UI
@@ -53,8 +53,8 @@ Markdown本文の`mermaid`コードブロックを図として描画する。
 ````markdown
 ```mermaid
 graph LR
-    TASK-120 --> TASK-150
-    DEC-007 --> TASK-150
+    TASK-0120 --> TASK-0150
+    DEC-0007 --> TASK-0150
 ```
 ````
 

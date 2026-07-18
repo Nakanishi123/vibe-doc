@@ -1,1 +1,1 @@
-//! Markdown-link extraction and reverse-link generation belong here.
+//! Markdownリンクの抽出と逆リンクの生成を定義する。

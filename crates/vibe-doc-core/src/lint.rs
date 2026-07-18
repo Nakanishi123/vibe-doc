@@ -1,1 +1,1 @@
-//! Diagnostics for malformed documents and broken references belong here.
+//! 壊れた文書と参照切れを検出する診断を定義する。

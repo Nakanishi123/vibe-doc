@@ -1,6 +1,6 @@
 ---
 vibedoc: 1
-id: DEC-003
+id: DEC-0003
 kind: decision
 decision_type: architecture
 status: accepted
@@ -9,9 +9,9 @@ tags:
   - search
   - database
 related:
-  - ARCH-001
-  - ARCH-002
-  - DEC-001
+  - ARCH-0001
+  - ARCH-0002
+  - DEC-0001
 ---
 
 # インデックスはメモリ上に構築する

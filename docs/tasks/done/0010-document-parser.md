@@ -1,16 +1,16 @@
 ---
 vibedoc: 1
-id: TASK-010
+id: TASK-0010
 kind: task
-status: todo
+status: done
 tags:
   - rust
   - markdown
   - parser
 related:
-  - ARCH-001
-  - ARCH-002
-  - DEC-001
+  - ARCH-0001
+  - ARCH-0002
+  - DEC-0001
 ---
 
 # Markdown文書を解析する

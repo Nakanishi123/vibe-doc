@@ -1,6 +1,6 @@
 ---
 vibedoc: 1
-id: TASK-060
+id: TASK-0060
 kind: task
 status: todo
 tags:
@@ -8,12 +8,12 @@ tags:
   - react
   - distribution
 related:
-  - ARCH-001
-  - DEC-004
+  - ARCH-0001
+  - DEC-0004
 depends_on:
-  - TASK-030
-  - TASK-040
-  - TASK-050
+  - TASK-0030
+  - TASK-0040
+  - TASK-0050
 ---
 
 # 単一バイナリとして配布する

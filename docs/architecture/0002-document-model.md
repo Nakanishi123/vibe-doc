@@ -1,6 +1,6 @@
 ---
 vibedoc: 1
-id: ARCH-002
+id: ARCH-0002
 kind: architecture
 tags:
   - vibe-doc
@@ -8,10 +8,10 @@ tags:
   - front-matter
   - document-model
 related:
-  - ARCH-001
-  - DEC-001
-  - DEC-005
-  - DEC-006
+  - ARCH-0001
+  - DEC-0001
+  - DEC-0005
+  - DEC-0006
 ---
 
 # ドキュメントモデル
@@ -22,6 +22,7 @@ related:
 
 ```text
 docs/
+├── README.md
 ├── decisions/
 │   ├── architecture/
 │   ├── product/
@@ -35,19 +36,21 @@ docs/
 └── architecture/
 ```
 
+`docs/README.md`は運用ガイドであり、管理対象のArchitecture、Decision、Taskには含めない。vibe-docはドキュメントの走査、一覧、タグ集計、lintから`docs/README.md`を除外する。
+
 ## 共通Front Matter
 
 ```yaml
 ---
 vibedoc: 1
-id: DEC-007
+id: DEC-0007
 kind: decision
 status: accepted
 tags:
   - api
   - error-handling
 related:
-  - ARCH-001
+  - ARCH-0001
 ---
 ```
 
@@ -95,9 +98,9 @@ Decision本文では、`コンテキスト`、`決定`、`結果`の見出しを
 
 ```yaml
 related:
-  - DEC-007
+  - DEC-0007
 depends_on:
-  - TASK-120
+  - TASK-0120
 ```
 
 - `related`は対称的な関係として表示する。どちらか一方にだけ記述する。
@@ -108,8 +111,8 @@ depends_on:
 
 | Markdownに書く情報 | 記述元 | 参照先 |
 | --- | --- | --- |
-| `related: [DEC-007]` | 関連文書 | 関連文書 |
-| `depends_on: [TASK-120]` | 依存先 | このTaskに依存しているTask |
+| `related: [DEC-0007]` | 関連文書 | 関連文書 |
+| `depends_on: [TASK-0120]` | 依存先 | このTaskに依存しているTask |
 | Markdownリンク | 本文中のリンク | この文書を参照している文書 |
 
 両側への重複記述やFront Matterと本文リンクの重複は、表示時に除去する。

@@ -1,6 +1,6 @@
 ---
 vibedoc: 1
-id: TASK-050
+id: TASK-0050
 kind: task
 status: todo
 tags:
@@ -8,10 +8,10 @@ tags:
   - mermaid
   - cdn
 related:
-  - ARCH-003
-  - DEC-007
+  - ARCH-0003
+  - DEC-0007
 depends_on:
-  - TASK-040
+  - TASK-0040
 ---
 
 # Mermaid図を描画する

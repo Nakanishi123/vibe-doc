@@ -1,1 +1,1 @@
-//! In-memory indexes for IDs, tags, full-text search, and backlinks belong here.
+//! ID、タグ、全文検索、逆リンクのインメモリ索引を定義する。

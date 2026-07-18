@@ -1,1 +1,1 @@
-//! Local HTTP server and static asset delivery will be defined here.
+//! ローカルHTTPサーバーと静的アセット配信を定義する。
