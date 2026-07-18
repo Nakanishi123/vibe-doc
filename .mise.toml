@@ -1,25 +1,3 @@
 [tools]
-node = "24"
+node = "26"
 pnpm = "11"
-
-[tasks.web]
-description = "Start the Web UI development server"
-run = "pnpm web:dev"
-
-[tasks."web:build"]
-description = "Build the Web UI"
-run = "pnpm web:build"
-
-[tasks."web:typecheck"]
-description = "Typecheck the Web UI"
-run = "pnpm web:typecheck"
-
-[tasks."vdoc:install"]
-description = "Build vdoc and install it to ~/.local/bin"
-depends = ["web:build"]
-run = "cargo build --release -p vibe-doc-cli && install -Dm755 target/release/vdoc \"$HOME/.local/bin/vdoc\""
-
-[tasks."vdoc:server"]
-description = "Rebuild and run vdoc server"
-depends = ["vdoc:install"]
-run = "vdoc server"

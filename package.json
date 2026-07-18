@@ -1,9 +1,0 @@
-{
-  "name": "vibe-doc",
-  "private": true,
-  "scripts": {
-    "web:dev": "pnpm --filter @vibe-doc/web dev",
-    "web:build": "pnpm --filter @vibe-doc/web build",
-    "web:typecheck": "pnpm --filter @vibe-doc/web typecheck"
-  }
-}
