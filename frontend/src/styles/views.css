@@ -193,6 +193,33 @@
   background: none;
   padding: 0;
 }
+.mermaid-diagram,
+.mermaid-fallback {
+  margin: 1.7em 0;
+}
+.mermaid-diagram {
+  overflow-x: auto;
+  padding: 18px;
+  border: 1px solid var(--line);
+  background: #f8f7f1;
+  text-align: center;
+}
+.mermaid-diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+.mermaid-fallback pre {
+  margin: 0;
+}
+.mermaid-fallback figcaption {
+  padding: 8px 12px;
+  border-left: 3px solid #aa5b42;
+  background: #f1e5de;
+  color: #763f30;
+  font: 500 12px/1.5 var(--sans);
+}
 .markdown-body blockquote {
   margin: 1.5em 0;
   padding: 0.2em 0 0.2em 22px;

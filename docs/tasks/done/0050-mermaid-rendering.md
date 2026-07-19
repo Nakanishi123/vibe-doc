@@ -2,7 +2,7 @@
 vibedoc: 1
 id: TASK-0050
 kind: task
-status: todo
+status: done
 tags:
   - react
   - mermaid
