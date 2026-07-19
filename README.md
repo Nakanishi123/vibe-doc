@@ -1,42 +1,33 @@
 # vibe-doc
 
-vibe-doc is a Markdown-first document and task management tool for AI-assisted software development.
+Git管理されたMarkdown文書を、ローカルで閲覧・検索・検査するためのツールです。
 
-The product and repository name is `vibe-doc`. The CLI command name is `vdoc`.
+## Layout
 
-This repository contains the vibe-doc product work itself. Until the real `vdoc` CLI exists, the repository is operated manually using the same document layout that `vdoc init` will eventually generate.
+- `crates/vibe-doc-core`: 文書モデル、解析、索引、リンク、lint、採番。
+- `crates/vibe-doc`: CLI、JSON API、ローカルWebサーバー、UIアセット埋め込み。
+- `frontend`: React、TypeScript、Viteによる読み取り専用のWeb UI。
+- `docs`: vibe-docが扱うMarkdown文書。
+- `tests/fixtures`: パーサーとlintの入力文書。
+- `tests/integration`: CLI・APIの統合テスト。
 
-## Tooling
+## Development
 
-Only `pnpm` is managed by mise in this repository.
-
-```sh
-mise install
-pnpm --version
+```bash
+pnpm --dir frontend install
+cargo check
+pnpm --dir frontend dev
 ```
 
-Rust, Node.js, and other tools are intentionally not pinned yet.
+フロントエンドの開発サーバーは`/api`を`127.0.0.1:3000`へプロキシします。
 
-## Rust Workspace
+## Build and run
 
-The Rust workspace is split by product responsibility:
+```bash
+pnpm --dir frontend install --frozen-lockfile
+cargo build --release
+./target/release/vibe-doc serve
+```
 
-- `crates/vibe-doc-core` contains shared document, validation, scanning, ID, and task lifecycle logic.
-- `crates/vibe-doc-cli` builds the `vdoc` command and depends on `vibe-doc-core`.
-- `crates/vibe-doc-server` hosts the API server and SPA and depends on `vibe-doc-core`.
-
-Dependency direction is inward toward `vibe-doc-core`: the core crate must not depend on the CLI or server crates.
-
-## Documentation Source of Truth
-
-The source of truth is the Markdown under `docs/` plus `AGENTS.md`.
-
-Specs, designs, ADRs, tasks, and the task index must include YAML frontmatter with:
-
-- `id`
-- `title`
-- `kind`
-
-`AGENTS.md` and README files do not use frontmatter.
-
-Document IDs are global positive integers shared across all numbered vibe-doc documents.
+CargoビルドはViteを実行し、生成したWeb UIを`vibe-doc`へ埋め込みます。完成した
+バイナリの実行時にはNode.js、pnpm、`frontend/dist`は不要です。

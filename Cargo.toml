@@ -1,15 +1,16 @@
 [workspace]
-members = [
-    "crates/vibe-doc-core",
-    "crates/vibe-doc-cli",
-    "crates/vibe-doc-server",
-]
-resolver = "2"
+members = ["crates/vibe-doc-core", "crates/vibe-doc"]
+resolver = "3"
 
 [workspace.package]
-edition = "2021"
 version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/Nakanishi123/vibe-doc"
 
 [workspace.dependencies]
-chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
-vibe-doc-core = { path = "crates/vibe-doc-core" }
+serde_yaml = "0.9"
+walkdir = "2.5.0"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"

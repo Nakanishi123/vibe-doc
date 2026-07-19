@@ -3,3 +3,8 @@ node_modules/
 dist/
 *.tsbuildinfo
 .vdoc/runs/
+
+
+# Added by cargo
+
+/target
