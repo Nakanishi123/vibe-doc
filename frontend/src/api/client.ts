@@ -7,8 +7,9 @@ import type {
   TagSummary,
 } from "../types";
 
-async function request<T>(path: string): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`/api${path}`, {
+    ...init,
     headers: { Accept: "application/json" },
   });
   if (!response.ok) {
@@ -18,6 +19,11 @@ async function request<T>(path: string): Promise<T> {
 }
 
 export const api = {
+  reload() {
+    return request<{ documentCount: number; diagnosticCount: number }>("/reload", {
+      method: "POST",
+    });
+  },
   documents(params: Record<string, string> = {}) {
     const query = new URLSearchParams(
       Object.entries(params).filter(([, value]) => value.trim().length > 0),

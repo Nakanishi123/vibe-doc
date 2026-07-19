@@ -36,7 +36,7 @@ Front MatterはYAMLのまま本文へ表示せず、ID、kind、status、tags、
 
 ## 検索
 
-ID、タイトル、タグ、本文に対する、大文字・小文字を区別しない部分一致とする。検索には起動時に構築したメモリ上のインデックスを使う。
+ID、タイトル、タグ、本文に対する、大文字・小文字を区別しない部分一致とする。検索には起動時に構築したメモリ上のインデックスを使う。サイドバーのReloadを押すと、文書ルートを再走査してインデックスとlint結果を更新し、現在の画面を再取得する。
 
 ## タグ
 
@@ -79,6 +79,7 @@ GET /api/tags/{tag}
 GET /api/links
 GET /api/lint
 GET /api/next-index/{kind}
+POST /api/reload
 ```
 
 ## 配信

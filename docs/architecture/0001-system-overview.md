@@ -67,7 +67,7 @@ flowchart LR
 
 - Backend: Rust、Axum、Serde、YAML parser、Markdown parser。
 - Frontend: React、TypeScript、Vite。
-- Index: 起動時に構築するメモリ上のインデックス。
+- Index: 起動時とWeb UIからの再読込時に構築するメモリ上のインデックス。
 - 配布: Viteの静的アセットをRustバイナリへ埋め込む。
 - 開発: Vite開発サーバーからRustの`/api`へプロキシする。
 - 本番: `vibe-doc serve`の単一プロセスでUIとAPIを提供する。

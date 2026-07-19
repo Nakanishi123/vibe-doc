@@ -155,7 +155,7 @@ a:focus-visible {
   color: var(--ink-muted);
   font-size: 10px;
 }
-.theme-toggle {
+.sidebar-action {
   width: 100%;
   min-height: 38px;
   padding: 0 12px;
@@ -170,13 +170,35 @@ a:focus-visible {
   font-size: 12px;
   font-weight: 500;
 }
-.theme-toggle:hover {
+.sidebar-action:hover:not(:disabled) {
   color: var(--ink);
   background: var(--surface-hover);
+}
+.sidebar-action:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 .theme-toggle span {
   width: 20px;
   font-size: 17px;
+}
+.reload-button .icon {
+  width: 18px;
+  height: 18px;
+}
+.reload-button:disabled .icon {
+  animation: reload-spin 0.8s linear infinite;
+}
+.reload-error {
+  margin: -2px 12px 2px 44px;
+  color: var(--red);
+  font-size: 10px;
+  line-height: 1.4;
+}
+@keyframes reload-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .main-content {
   margin-left: 256px;
