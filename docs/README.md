@@ -207,10 +207,10 @@ Lint should help find mistakes without making documentation expensive to maintai
 
 ## Recommended workflow
 
+This workflow is mandatory for AI agents.
+AI agents should run `vibe-doc lint` at appropriate checkpoints and address any reported issues before proceeding.
+
 1. Choose the correct document kind and directory.
-2. For a Decision or Task, get the next candidate number if needed.
-3. Create the Markdown file with Front Matter and a clear title.
-4. Add only useful tags and relationships.
-5. Move Tasks between status directories as work progresses.
-6. Run `vibe-doc lint` before committing or after merging branches.
-7. Use `vibe-doc serve` to review the rendered documentation, tags, and backlinks.
+2. For a Decision or Task, get the next candidate number. `vibe-doc next-index decision` or `vibe-doc next-index task`.
+3. Add only useful tags and relationships.
+4. Move Tasks between status directories as work progresses.
