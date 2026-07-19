@@ -51,10 +51,7 @@ pub(crate) fn run(cli: Cli) -> ExitCode {
         Some(Command::Lint) => run_lint(),
         Some(Command::Tag) => run_tag(),
         Some(Command::NextIndex { kind }) => run_next_index(kind.into()),
-        Some(Command::Serve) => {
-            eprintln!("`serve` is scaffolded but not implemented yet.");
-            ExitCode::FAILURE
-        }
+        Some(Command::Serve) => crate::server::serve(DOCUMENT_ROOT),
         None => {
             println!("{}", Cli::command().render_help());
             ExitCode::SUCCESS

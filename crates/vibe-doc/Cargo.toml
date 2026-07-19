@@ -6,7 +6,11 @@ license.workspace = true
 build = "build.rs"
 
 [dependencies]
+axum = "0.8"
 clap = { version = "4.6.2", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread"] }
+tower-http = { version = "0.6", features = ["fs"] }
 vibe-doc-core = { path = "../vibe-doc-core" }
 
 [lints]

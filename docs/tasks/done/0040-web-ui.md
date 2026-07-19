@@ -2,7 +2,7 @@
 vibedoc: 1
 id: TASK-0040
 kind: task
-status: todo
+status: done
 tags:
   - react
   - web-ui
