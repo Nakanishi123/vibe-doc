@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { loadMermaid, type MermaidRenderResult } from "./mermaid";
+import type { RenderResult } from "mermaid";
+import { useTheme } from "../components/ThemeContext";
+import { loadMermaid, renderMermaid } from "./mermaid";
 
 type RenderState =
   | { kind: "loading" }
-  | ({ kind: "rendered" } & MermaidRenderResult)
+  | ({ kind: "rendered" } & RenderResult)
   | { kind: "load-error" }
   | { kind: "syntax-error" };
 
@@ -15,6 +17,7 @@ function nextDiagramId(): string {
 }
 
 export function MermaidDiagram({ source }: { source: string }) {
+  const theme = useTheme();
   const [state, setState] = useState<RenderState>({ kind: "loading" });
   const diagramRef = useRef<HTMLDivElement>(null);
 
@@ -24,7 +27,7 @@ export function MermaidDiagram({ source }: { source: string }) {
 
     loadMermaid().then(
       (mermaid) => {
-        mermaid.render(nextDiagramId(), source).then(
+        renderMermaid(mermaid, nextDiagramId(), source, theme).then(
           (result) => {
             if (active) setState({ kind: "rendered", ...result });
           },
@@ -41,7 +44,7 @@ export function MermaidDiagram({ source }: { source: string }) {
     return () => {
       active = false;
     };
-  }, [source]);
+  }, [source, theme]);
 
   useEffect(() => {
     if (state.kind === "rendered" && diagramRef.current && state.bindFunctions) {

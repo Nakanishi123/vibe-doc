@@ -3,7 +3,8 @@ vibedoc: 1
 id: DEC-0007
 kind: decision
 decision_type: architecture
-status: accepted
+status: superseded
+superseded_by: DEC-0008
 tags:
   - mermaid
   - markdown
@@ -13,6 +14,8 @@ related:
 ---
 
 # MermaidをCDNから読み込んで描画する
+
+> DEC-0008により置き換えられた。
 
 ## コンテキスト
 

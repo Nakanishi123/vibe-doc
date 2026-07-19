@@ -177,7 +177,11 @@ flowchart LR
 ```
 ````
 
-The Web UI loads a pinned Mermaid version from a CDN and renders the block as SVG. If the CDN is unavailable or the diagram is invalid, vibe-doc keeps the source code visible and shows a small error instead of breaking the page.
+The Web UI renders the block as SVG with a pinned Mermaid version embedded in the `vibe-doc`
+binary. Mermaid is loaded lazily only when a document contains a diagram, so diagrams work without
+an internet connection. The diagram follows the Web UI's light or dark theme and is redrawn when the
+theme changes. If Mermaid cannot be loaded or the diagram is invalid, vibe-doc keeps the source code
+visible and shows a small error instead of breaking the page.
 
 ## Lint policy
 

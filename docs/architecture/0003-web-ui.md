@@ -13,7 +13,7 @@ related:
   - ARCH-0002
   - DEC-0002
   - DEC-0004
-  - DEC-0007
+  - DEC-0008
 ---
 
 # Web UI
@@ -58,15 +58,16 @@ graph LR
 ```
 ````
 
-Markdownレンダリング後に`language-mermaid`のコードブロックを検出し、CDNから読み込んだMermaidでSVGへ変換する。
-
-```text
-https://cdn.jsdelivr.net/npm/mermaid@<固定バージョン>/dist/mermaid.esm.min.mjs
-```
+Markdownレンダリング後に`language-mermaid`のコードブロックを検出し、フロントエンドへ
+依存関係として組み込んだMermaidでSVGへ変換する。MermaidはViteの動的importで別チャンク
+に分割し、図を含む文書でだけ遅延読み込みする。生成されたチャンクは他のWeb UIアセットと
+同様にRustバイナリへ埋め込む。
 
 - 実装時に特定のMermaidバージョンへ固定する。
 - `securityLevel: strict`で初期化する。
-- CDNへ接続できない場合は元のコードブロックを表示する。
+- Web UIのテーマがダークなら`dark`、ライトなら`default`テーマで描画する。
+- Web UIのテーマを切り替えた場合は、表示中の図を新しいテーマで再描画する。
+- Mermaidモジュールを読み込めない場合は元のコードブロックを表示する。
 - Mermaidの構文解析に失敗してもページ全体を壊さず、コードと簡潔なエラーを表示する。
 
 ## API
@@ -86,6 +87,6 @@ POST /api/reload
 
 Cargoビルド時にViteでWeb UIをビルドし、`frontend/dist`以下の成果物をRustの
 `include_bytes!`でバイナリへ埋め込む。本番の`vibe-doc serve`は埋め込みアセットと
-JSON APIを同じAxumサーバーから配信するため、実行時にNode.jsや外部の静的ファイルを
-必要としない。実ファイルに一致しないUIのパスは、クライアント側ルーティングのため
-埋め込み`index.html`へフォールバックする。
+JSON APIを同じAxumサーバーから配信するため、実行時にNode.js、外部の静的ファイル、
+CDNへの接続を必要としない。実ファイルに一致しないUIのパスは、クライアント側
+ルーティングのため埋め込み`index.html`へフォールバックする。

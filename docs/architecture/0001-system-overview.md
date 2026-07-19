@@ -78,7 +78,7 @@ flowchart LR
 2. ID、タグ、`related`、`depends_on`、Markdownリンク、逆引きのメモリ上インデックス。
 3. `lint`、`tag`、`next-index`。
 4. 読み取りAPIとDocuments、Document Detail、Tags、Tag Detail、LintのWeb UI。
-5. Markdown表示とCDN版Mermaidの描画・フォールバック。
+5. Markdown表示と埋め込みMermaidの描画・テーマ連動・フォールバック。
 6. Decisions、Tasks、Links、Dashboardの専用一覧。
 
 ## 受け入れ条件
