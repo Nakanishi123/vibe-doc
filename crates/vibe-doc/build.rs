@@ -42,7 +42,8 @@ fn emit_rerun_directives(frontend_dir: &Path) {
 }
 
 fn build_frontend(frontend_dir: &Path) {
-    let status = Command::new("pnpm")
+    let pnpm = if cfg!(windows) { "pnpm.cmd" } else { "pnpm" };
+    let status = Command::new(pnpm)
         .arg("build")
         .current_dir(frontend_dir)
         .status()
