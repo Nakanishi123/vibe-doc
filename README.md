@@ -19,7 +19,13 @@ cargo check
 pnpm --dir frontend dev
 ```
 
-フロントエンドの開発サーバーは`/api`を`127.0.0.1:3000`へプロキシします。
+`vibe-doc serve`は起動時に空きポートを自動で選び、接続先URLを表示します。
+フロントエンドの開発サーバーを併用する場合は、表示されたURLをプロキシ先として
+指定します。
+
+```bash
+VITE_API_TARGET=http://127.0.0.1:<表示されたポート> pnpm --dir frontend dev
+```
 
 ## Install
 
@@ -34,7 +40,7 @@ curl --proto '=https' --tlsv1.2 -LsSf \
 指定する場合は、環境変数を渡します。
 
 ```bash
-VIBE_DOC_INSTALL_DIR=/usr/local/bin VIBE_DOC_VERSION=0.1.3 \
+VIBE_DOC_INSTALL_DIR=/usr/local/bin VIBE_DOC_VERSION=0.1.4 \
   sh -c "$(curl --proto '=https' --tlsv1.2 -LsSf https://raw.githubusercontent.com/Nakanishi123/vibe-doc/main/install.sh)"
 ```
 
@@ -50,4 +56,5 @@ cargo build --release
 ```
 
 CargoビルドはViteを実行し、生成したWeb UIを`vibe-doc`へ埋め込みます。完成した
-バイナリの実行時にはNode.js、pnpm、`frontend/dist`は不要です。
+バイナリの実行時にはNode.js、pnpm、`frontend/dist`は不要です。Web UIのURLには、
+起動時に標準出力へ表示される空きポートを使用してください。

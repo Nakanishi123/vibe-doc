@@ -26,7 +26,7 @@ vibe-doc next-index decision
 vibe-doc next-index task
 ```
 
-- `serve`: ローカルのWeb UIとJSON APIを提供する。
+- `serve`: ローカルのWeb UIとJSON APIを、OSが割り当てた空きポートで提供する。
 - `lint`: 診断を標準出力へ表示する。
 - `tag`: タグ一覧を標準出力へ表示する。
 - `next-index`: 指定kindの次の採番候補を標準出力へ表示する。

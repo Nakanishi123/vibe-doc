@@ -4,7 +4,7 @@ use std::process::ExitCode;
 
 use axum::Router;
 
-const ADDRESS: &str = "127.0.0.1:3000";
+const ADDRESS: &str = "127.0.0.1:0";
 
 /// 文書索引、JSON API、埋め込みWeb UIを同じローカルHTTPサーバーから配信する。
 ///
@@ -31,7 +31,14 @@ pub(crate) fn serve(document_root: &str) -> ExitCode {
                 return ExitCode::FAILURE;
             }
         };
-        println!("vibe-doc is available at http://{ADDRESS}");
+        let address = match listener.local_addr() {
+            Ok(address) => address,
+            Err(error) => {
+                eprintln!("failed to determine server address: {error}");
+                return ExitCode::FAILURE;
+            }
+        };
+        println!("vibe-doc is available at http://{address}");
         if let Err(error) = axum::serve(listener, app).await {
             eprintln!("server failed: {error}");
             return ExitCode::FAILURE;
