@@ -66,3 +66,12 @@ CIとReleaseのRustジョブは、Cargoの依存関係とビルド成果物を�
 
 リリースされたバイナリにはWeb UIが埋め込まれているため、利用環境にNode.js、pnpm、
 `frontend/dist`は不要である。
+
+## インストールスクリプト
+
+リポジトリ直下の`install.sh`は、実行環境に対応する最新のUnix向けアーカイブと
+`SHA256SUMS`をGitHub Releaseからダウンロードする。チェックサムを検証してから、
+既定では`~/.local/bin/vibe-doc`へバイナリを配置する。
+
+対象はLinux x86_64、macOS x86_64、macOS aarch64とする。`VIBE_DOC_VERSION`で
+リリースバージョンを、`VIBE_DOC_INSTALL_DIR`で配置先を上書きできる。

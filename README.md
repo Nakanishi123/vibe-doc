@@ -21,6 +21,26 @@ pnpm --dir frontend dev
 
 フロントエンドの開発サーバーは`/api`を`127.0.0.1:3000`へプロキシします。
 
+## Install
+
+Linux x86_64、macOS x86_64、macOS Apple Siliconに対応しています。
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf \
+  https://raw.githubusercontent.com/Nakanishi123/vibe-doc/main/install.sh | sh
+```
+
+既定では`~/.local/bin/vibe-doc`へインストールします。インストール先やバージョンを
+指定する場合は、環境変数を渡します。
+
+```bash
+VIBE_DOC_INSTALL_DIR=/usr/local/bin VIBE_DOC_VERSION=0.1.2 \
+  sh -c "$(curl --proto '=https' --tlsv1.2 -LsSf https://raw.githubusercontent.com/Nakanishi123/vibe-doc/main/install.sh)"
+```
+
+`/usr/local/bin`への書き込み権限がない場合は、管理者権限が必要です。ダウンロードした
+アーカイブは、GitHub Releaseの`SHA256SUMS`を使ってインストール前に検証されます。
+
 ## Build and run
 
 ```bash
