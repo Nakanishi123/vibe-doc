@@ -14,9 +14,20 @@ Git管理されたMarkdown文書を、ローカルで閲覧・検索・検査す
 ## Development
 
 ```bash
-cargo check
 pnpm --dir frontend install
+cargo check
 pnpm --dir frontend dev
 ```
 
 フロントエンドの開発サーバーは`/api`を`127.0.0.1:3000`へプロキシします。
+
+## Build and run
+
+```bash
+pnpm --dir frontend install --frozen-lockfile
+cargo build --release
+./target/release/vibe-doc serve
+```
+
+CargoビルドはViteを実行し、生成したWeb UIを`vibe-doc`へ埋め込みます。完成した
+バイナリの実行時にはNode.js、pnpm、`frontend/dist`は不要です。

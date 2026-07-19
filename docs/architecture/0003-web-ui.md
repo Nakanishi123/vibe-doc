@@ -80,3 +80,11 @@ GET /api/links
 GET /api/lint
 GET /api/next-index/{kind}
 ```
+
+## 配信
+
+Cargoビルド時にViteでWeb UIをビルドし、`frontend/dist`以下の成果物をRustの
+`include_bytes!`でバイナリへ埋め込む。本番の`vibe-doc serve`は埋め込みアセットと
+JSON APIを同じAxumサーバーから配信するため、実行時にNode.jsや外部の静的ファイルを
+必要としない。実ファイルに一致しないUIのパスは、クライアント側ルーティングのため
+埋め込み`index.html`へフォールバックする。

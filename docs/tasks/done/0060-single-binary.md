@@ -2,7 +2,7 @@
 vibedoc: 1
 id: TASK-0060
 kind: task
-status: todo
+status: done
 tags:
   - rust
   - react
