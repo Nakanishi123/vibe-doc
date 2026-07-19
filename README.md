@@ -34,7 +34,7 @@ curl --proto '=https' --tlsv1.2 -LsSf \
 指定する場合は、環境変数を渡します。
 
 ```bash
-VIBE_DOC_INSTALL_DIR=/usr/local/bin VIBE_DOC_VERSION=0.1.2 \
+VIBE_DOC_INSTALL_DIR=/usr/local/bin VIBE_DOC_VERSION=0.1.3 \
   sh -c "$(curl --proto '=https' --tlsv1.2 -LsSf https://raw.githubusercontent.com/Nakanishi123/vibe-doc/main/install.sh)"
 ```
 
