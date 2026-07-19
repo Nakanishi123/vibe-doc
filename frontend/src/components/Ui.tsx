@@ -80,7 +80,7 @@ export function PageHeader({
 }: {
   kicker: string;
   title: string;
-  description: string;
+  description?: string;
   aside?: ReactNode;
 }) {
   return (
@@ -88,7 +88,7 @@ export function PageHeader({
       <div>
         <p className="kicker">{kicker}</p>
         <h1>{title}</h1>
-        <p className="page-description">{description}</p>
+        {description && <p className="page-description">{description}</p>}
       </div>
       {aside && <div className="page-header-aside">{aside}</div>}
     </header>

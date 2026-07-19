@@ -20,18 +20,7 @@ export function Dashboard() {
 
   return (
     <div className="page dashboard-page">
-      <PageHeader
-        kicker="Workspace pulse"
-        title="Good documents make decisions visible."
-        description="A living index of the architecture, decisions, and work shaping this repository."
-        aside={
-          <div className="index-stamp">
-            <span>INDEX</span>
-            <strong>{String(data.documents.length).padStart(3, "0")}</strong>
-            <small>documents</small>
-          </div>
-        }
-      />
+      <PageHeader kicker="Overview" title="Dashboard" />
       <section className="stat-grid">
         <LinkButton className="stat-card stat-primary" to="/documents">
           <span className="stat-icon">

@@ -11,9 +11,9 @@ import "./styles.css";
 
 function CurrentPage({ pathname }: { pathname: string }) {
   if (pathname === "/") return <Dashboard />;
-  if (pathname === "/documents") return <DocumentList mode="documents" />;
-  if (pathname === "/decisions") return <DocumentList mode="decisions" />;
-  if (pathname === "/tasks") return <DocumentList mode="tasks" />;
+  if (pathname === "/documents") return <DocumentList key="documents" mode="documents" />;
+  if (pathname === "/decisions") return <DocumentList key="decisions" mode="decisions" />;
+  if (pathname === "/tasks") return <DocumentList key="tasks" mode="tasks" />;
   if (pathname === "/tags") return <Tags />;
   if (pathname === "/links") return <Links />;
   if (pathname === "/lint") return <LintPage />;

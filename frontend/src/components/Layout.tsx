@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon, LinkButton } from "./Ui";
 
 const nav = [
@@ -13,6 +13,17 @@ const nav = [
 
 export function Layout({ pathname, children }: { pathname: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const saved = window.localStorage.getItem("vibe-doc-theme");
+    if (saved === "light" || saved === "dark") return saved;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem("vibe-doc-theme", theme);
+  }, [theme]);
+
   return (
     <div className="app-shell">
       <button
@@ -28,7 +39,6 @@ export function Layout({ pathname, children }: { pathname: string; children: Rea
           <span className="brand-glyph">V</span>
           <span>
             <strong>vibe-doc</strong>
-            <small>DOCUMENT INTELLIGENCE</small>
           </span>
         </LinkButton>
         <nav aria-label="Primary navigation">
@@ -44,12 +54,23 @@ export function Layout({ pathname, children }: { pathname: string; children: Rea
             );
           })}
         </nav>
-        <div className="read-only-note">
-          <span>●</span>
-          <div>
-            <strong>Read-only</strong>
-            <small>Source files stay untouched</small>
+        <div className="sidebar-footer">
+          <div className="read-only-note">
+            <span>●</span>
+            <div>
+              <strong>Read-only</strong>
+              <small>Source files stay untouched</small>
+            </div>
           </div>
+          <button
+            aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+            className="theme-toggle"
+            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+            type="button"
+          >
+            <span aria-hidden="true">{theme === "light" ? "☾" : "☀"}</span>
+            {theme === "light" ? "Dark mode" : "Light mode"}
+          </button>
         </div>
       </aside>
       {open && (
