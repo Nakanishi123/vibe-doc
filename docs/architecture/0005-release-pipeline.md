@@ -52,6 +52,8 @@ git push origin v0.1.0
 ## GitHub Actions
 
 通常のpushとPull Requestでは、`.github/workflows/ci.yml`がfmt、Clippy、テストを実行する。
+CIとReleaseのRustジョブは、Cargoの依存関係とビルド成果物をキャッシュする。
+検証ジョブはキャッシュを共有し、配布ビルドはターゲットごとにキャッシュを分離する。
 
 `vX.Y.Z`タグをpushすると、`.github/workflows/release.yml`が次の処理を実行する。
 

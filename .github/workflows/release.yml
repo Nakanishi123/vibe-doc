@@ -44,6 +44,11 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm --dir frontend install --frozen-lockfile
 
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          shared-key: validation
+
       - name: Check Rust formatting
         run: cargo fmt --all --check
 
@@ -93,6 +98,12 @@ jobs:
 
       - name: Install Rust target
         run: rustup target add ${{ matrix.target }}
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          shared-key: release
+          key: ${{ matrix.target }}
 
       - name: Build release binary
         run: cargo build --locked --release --package vibe-doc --target ${{ matrix.target }}
