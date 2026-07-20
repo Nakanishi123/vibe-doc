@@ -5,6 +5,17 @@ let mermaidPromise: Promise<Mermaid> | undefined;
 let renderQueue = Promise.resolve();
 
 /**
+ * AI生成のMermaidでよく使われるリテラルの `\n` を表示上の改行へ変換する。
+ *
+ * Mermaidでは図の種類によって `\n` の扱いが異なり、そのまま文字として表示される
+ * 場合がある。Mermaidが各図で改行として扱える `<br/>` に描画直前で統一する。
+ * `\\n` のようにバックスラッシュ自体がエスケープされている場合は変更しない。
+ */
+function normalizeMermaidLineBreaks(source: string): string {
+  return source.replace(/(^|[^\\])\\n/g, "$1<br/>");
+}
+
+/**
  * バンドルされた固定バージョンのMermaidを必要になったときに一度だけ読み込む。
  *
  * 動的importによりMermaidを通常の画面から別チャンクへ分離する。失敗したPromiseも
@@ -37,7 +48,7 @@ export function renderMermaid(
       theme: darkMode ? "dark" : "default",
       themeVariables: { darkMode },
     });
-    return mermaid.render(id, source);
+    return mermaid.render(id, normalizeMermaidLineBreaks(source));
   };
   const result = renderQueue.then(render, render);
   renderQueue = result.then(
