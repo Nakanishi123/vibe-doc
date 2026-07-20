@@ -6,8 +6,10 @@ import { Icon, LinkButton } from "./Ui";
 const nav = [
   ["/", "dashboard", "Dashboard"],
   ["/documents", "documents", "Documents"],
+  ["/architecture", "architecture", "Architecture"],
   ["/decisions", "decisions", "Decisions"],
   ["/tasks", "tasks", "Tasks"],
+  ["/research", "research", "Research"],
   ["/tags", "tags", "Tags"],
   ["/links", "links", "Links"],
   ["/lint", "lint", "Lint"],

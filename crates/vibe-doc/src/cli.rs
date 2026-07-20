@@ -42,6 +42,7 @@ enum Command {
 enum CommandKind {
     Decision,
     Task,
+    Research,
 }
 
 impl From<CommandKind> for IndexedKind {
@@ -49,6 +50,7 @@ impl From<CommandKind> for IndexedKind {
         match kind {
             CommandKind::Decision => Self::Decision,
             CommandKind::Task => Self::Task,
+            CommandKind::Research => Self::Research,
         }
     }
 }
@@ -128,6 +130,13 @@ mod tests {
             cli.command,
             Some(Command::NextIndex {
                 kind: CommandKind::Task
+            })
+        ));
+        let cli = Cli::try_parse_from(["vibe-doc", "next-index", "research"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Some(Command::NextIndex {
+                kind: CommandKind::Research
             })
         ));
         assert!(Cli::try_parse_from(["vibe-doc", "next-index", "unknown"]).is_err());

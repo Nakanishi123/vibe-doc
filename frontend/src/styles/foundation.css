@@ -286,7 +286,7 @@ a:focus-visible {
 
 .stat-grid {
   display: grid;
-  grid-template-columns: 1.35fr repeat(3, 1fr);
+  grid-template-columns: 1.35fr repeat(4, 1fr);
   gap: 1px;
   background: var(--line);
   border: 1px solid var(--line);
@@ -429,6 +429,10 @@ a:focus-visible {
 .kind-task {
   color: #67483e;
   background: #eddcd6;
+}
+.kind-research {
+  color: #4c5677;
+  background: #dee2f0;
 }
 .document-card-copy {
   min-width: 0;

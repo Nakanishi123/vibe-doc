@@ -5,15 +5,19 @@ import { DocumentCard, EmptyState, ErrorState, Icon, Loading, PageHeader } from 
 
 const taskStatuses = ["", "todo", "in-progress", "done", "wont-do"];
 
-export function DocumentList({ mode }: { mode: "documents" | "decisions" | "tasks" }) {
+const modeKinds = {
+  documents: "",
+  architecture: "architecture",
+  decisions: "decision",
+  tasks: "task",
+  research: "research",
+} as const;
+
+export function DocumentList({ mode }: { mode: keyof typeof modeKinds }) {
   const searchParams = new URLSearchParams(window.location.search);
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [kind, setKind] = useState(
-    mode === "documents"
-      ? (searchParams.get("kind") ?? "")
-      : mode === "decisions"
-        ? "decision"
-        : "task",
+    mode === "documents" ? (searchParams.get("kind") ?? "") : modeKinds[mode],
   );
   const [status, setStatus] = useState(searchParams.get("status") ?? "");
   const [tag, setTag] = useState(searchParams.get("tag") ?? "");
@@ -27,24 +31,34 @@ export function DocumentList({ mode }: { mode: "documents" | "decisions" | "task
     [settledQuery, kind, status, tag],
   );
   const tags = useApi(() => api.tags(), []);
-  const copy =
-    mode === "decisions"
-      ? [
-          "Decision archive",
-          "Decisions",
-          "Trace each choice back to its context, consequence, and current status.",
-        ]
-      : mode === "tasks"
-        ? [
-            "Execution ledger",
-            "Tasks",
-            "Follow work from the first intention through completion—or a deliberate stop.",
-          ]
-        : [
-            "Knowledge index",
-            "Documents",
-            "Search every title, identifier, tag, and paragraph in the repository.",
-          ];
+  const modeCopy = {
+    architecture: [
+      "System atlas",
+      "Architecture",
+      "Understand how the system is structured and behaves today.",
+    ],
+    decisions: [
+      "Decision archive",
+      "Decisions",
+      "Trace each choice back to its context, consequence, and current status.",
+    ],
+    tasks: [
+      "Execution ledger",
+      "Tasks",
+      "Follow work from the first intention through completion—or a deliberate stop.",
+    ],
+    research: [
+      "Reference shelf",
+      "Research",
+      "Keep investigation notes that inform decisions without a lifecycle of their own.",
+    ],
+    documents: [
+      "Knowledge index",
+      "Documents",
+      "Search every title, identifier, tag, and paragraph in the repository.",
+    ],
+  } as const;
+  const copy = modeCopy[mode];
 
   return (
     <div className="page">
@@ -94,21 +108,24 @@ export function DocumentList({ mode }: { mode: "documents" | "decisions" | "task
                   <option value="architecture">Architecture</option>
                   <option value="decision">Decision</option>
                   <option value="task">Task</option>
+                  <option value="research">Research</option>
                 </select>
               </label>
             )}
-            <label>
-              <span>Status</span>
-              <select onChange={(event) => setStatus(event.target.value)} value={status}>
-                <option value="">All statuses</option>
-                <option value="accepted">Accepted</option>
-                <option value="proposed">Proposed</option>
-                <option value="todo">Todo</option>
-                <option value="in-progress">In progress</option>
-                <option value="done">Done</option>
-                <option value="wont-do">Won’t do</option>
-              </select>
-            </label>
+            {mode !== "research" && (
+              <label>
+                <span>Status</span>
+                <select onChange={(event) => setStatus(event.target.value)} value={status}>
+                  <option value="">All statuses</option>
+                  <option value="accepted">Accepted</option>
+                  <option value="proposed">Proposed</option>
+                  <option value="todo">Todo</option>
+                  <option value="in-progress">In progress</option>
+                  <option value="done">Done</option>
+                  <option value="wont-do">Won’t do</option>
+                </select>
+              </label>
+            )}
             <label>
               <span>Tag</span>
               <select onChange={(event) => setTag(event.target.value)} value={tag}>

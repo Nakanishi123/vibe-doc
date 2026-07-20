@@ -87,7 +87,10 @@ fn ids_by_document(documents: &BTreeMap<PathBuf, Document>) -> BTreeMap<String, 
 
 fn lint_kind_and_status(document: &Document, diagnostics: &mut Vec<LintDiagnostic>) {
     if let Some(kind) = &document.metadata.kind
-        && !matches!(kind.as_str(), "architecture" | "decision" | "task")
+        && !matches!(
+            kind.as_str(),
+            "architecture" | "decision" | "task" | "research"
+        )
     {
         diagnostics.push(error(
             &document.path,

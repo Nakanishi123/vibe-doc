@@ -1,4 +1,4 @@
-export type DocumentKind = "architecture" | "decision" | "task";
+export type DocumentKind = "architecture" | "decision" | "task" | "research";
 
 export interface DocumentSummary {
   id: string;

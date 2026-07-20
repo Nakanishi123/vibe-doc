@@ -28,7 +28,8 @@ export function Tag({ name }: { name: string }) {
 }
 
 export function KindMark({ kind }: { kind?: string }) {
-  const initial = kind === "architecture" ? "A" : kind === "decision" ? "D" : "T";
+  const initial =
+    kind === "architecture" ? "A" : kind === "decision" ? "D" : kind === "research" ? "R" : "T";
   return <span className={`kind-mark kind-${kind ?? "unknown"}`}>{initial}</span>;
 }
 
@@ -138,6 +139,18 @@ export function Icon({ name }: { name: string }) {
       <>
         <path d="M6 2h9l4 4v16H6z" />
         <path d="M14 2v5h5M9 12h6M9 16h6" />
+      </>
+    ),
+    architecture: (
+      <>
+        <path d="M12 3 3 8l9 5 9-5z" />
+        <path d="M3 13.5 12 18l9-4.5" />
+      </>
+    ),
+    research: (
+      <>
+        <circle cx="10" cy="10" r="6" />
+        <path d="m21 21-6.5-6.5M10 7v6M7 10h6" />
       </>
     ),
     decisions: (

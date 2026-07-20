@@ -13,6 +13,7 @@ export function Dashboard() {
     architecture: data.documents.filter((doc) => doc.kind === "architecture").length,
     decision: data.documents.filter((doc) => doc.kind === "decision").length,
     task: data.documents.filter((doc) => doc.kind === "task").length,
+    research: data.documents.filter((doc) => doc.kind === "research").length,
   };
   const activeTasks = data.documents.filter(
     (doc) => doc.kind === "task" && ["todo", "in-progress"].includes(doc.status ?? ""),
@@ -30,7 +31,7 @@ export function Dashboard() {
           <span>All documents</span>
           <small>Across the workspace</small>
         </LinkButton>
-        <LinkButton className="stat-card" to="/documents?kind=architecture">
+        <LinkButton className="stat-card" to="/architecture">
           <span className="stat-letter">A</span>
           <strong>{kinds.architecture}</strong>
           <span>Architecture</span>
@@ -47,6 +48,12 @@ export function Dashboard() {
           <strong>{kinds.task}</strong>
           <span>Tasks</span>
           <small>{activeTasks.length} currently open</small>
+        </LinkButton>
+        <LinkButton className="stat-card" to="/research">
+          <span className="stat-letter">R</span>
+          <strong>{kinds.research}</strong>
+          <span>Research</span>
+          <small>What was investigated</small>
         </LinkButton>
       </section>
       <div className="dashboard-columns">

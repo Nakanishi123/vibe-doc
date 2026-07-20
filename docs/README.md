@@ -17,6 +17,7 @@ docs/
 │   ├── product/
 │   ├── domain/
 │   └── operations/
+├── research/
 └── tasks/
     ├── todo/
     ├── in-progress/
@@ -54,6 +55,12 @@ Recommended sections are:
 ```
 
 These sections are conventions, not lint requirements.
+
+### Research
+
+`research/` holds reference investigation records that belong to neither a Decision nor a Task, such as library comparisons, experiments, and survey notes. A Research document has no lifecycle: it does not carry a `status` field, and lint neither requires nor checks one.
+
+When an investigation leads to a choice, promote the conclusion to a Decision and link the Decision from the Research document with `related` or a Markdown link. The Research document stays as the record of what was examined; the Decision records what was chosen and why.
 
 ### Tasks
 
@@ -96,8 +103,8 @@ The standard fields are:
 | --- | --- |
 | `vibedoc` | Schema version; currently `1` |
 | `id` | Unique document ID |
-| `kind` | `architecture`, `decision`, or `task` |
-| `status` | Status appropriate for the document kind |
+| `kind` | `architecture`, `decision`, `task`, or `research` |
+| `status` | Status appropriate for the document kind; Research documents omit it |
 | `tags` | Tags used for navigation and filtering |
 | `related` | IDs of related documents |
 | `depends_on` | IDs of Tasks that must precede this Task |
@@ -106,7 +113,7 @@ Additional metadata such as dates or priority is allowed. Unknown fields are not
 
 ## IDs and filenames
 
-Decision IDは `DEC-` に4桁、Task IDは `TASK-` に4桁、Architecture IDは `ARCH-` に4桁を続ける。
+Decision IDは `DEC-` に4桁、Task IDは `TASK-` に4桁、Architecture IDは `ARCH-` に4桁、Research IDは `RES-` に4桁を続ける。
 
 Use lowercase kebab-case after the numeric filename prefix:
 
@@ -114,16 +121,18 @@ Use lowercase kebab-case after the numeric filename prefix:
 decisions/architecture/0007-mermaid-from-cdn.md
 tasks/todo/0030-cli.md
 architecture/003-web-ui.md
+research/0001-markdown-parser-survey.md
 ```
 
-Get the next Decision or Task number with:
+Get the next Decision, Task, or Research number with:
 
 ```bash
 vibe-doc next-index decision
 vibe-doc next-index task
+vibe-doc next-index research
 ```
 
-Decision numbers increase by 1. Task numbers increase by 10. The command only prints a candidate number; it does not create a file. Concurrent branches may choose the same number, so run lint after merging.
+Decision and Research numbers increase by 1. Task numbers increase by 10. The command only prints a candidate number; it does not create a file. Concurrent branches may choose the same number, so run lint after merging.
 
 ## Related documents and backlinks
 
@@ -159,7 +168,7 @@ The argument is a document ID or a managed file path. The output groups referenc
 
 ## Tags
 
-Tags are shared across Architecture, Decision, and Task documents. Prefer lowercase kebab-case names such as `next-js`, `web-ui`, and `error-handling`.
+Tags are shared across Architecture, Decision, Task, and Research documents. Prefer lowercase kebab-case names such as `next-js`, `web-ui`, and `error-handling`.
 
 The Web UI provides:
 
@@ -225,6 +234,6 @@ This workflow is mandatory for AI agents.
 AI agents should run `vibe-doc lint` at appropriate checkpoints and address any reported issues before proceeding.
 
 1. Choose the correct document kind and directory.
-2. For a Decision or Task, get the next candidate number. `vibe-doc next-index decision` or `vibe-doc next-index task`.
+2. For a Decision, Task, or Research document, get the next candidate number. `vibe-doc next-index decision`, `vibe-doc next-index task`, or `vibe-doc next-index research`.
 3. Add only useful tags and relationships.
 4. Move Tasks between status directories as work progresses.

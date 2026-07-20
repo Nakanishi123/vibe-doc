@@ -368,6 +368,7 @@ async fn get_next_index(
     let indexed_kind = match kind.as_str() {
         "decision" => IndexedKind::Decision,
         "task" => IndexedKind::Task,
+        "research" => IndexedKind::Research,
         _ => return Err(StatusCode::BAD_REQUEST),
     };
     let snapshot = state

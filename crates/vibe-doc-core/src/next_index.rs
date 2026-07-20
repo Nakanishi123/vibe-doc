@@ -1,4 +1,4 @@
-//! DecisionとTaskの連番を計算する処理を定義する。
+//! Decision・Task・Researchの連番を計算する処理を定義する。
 
 use std::fmt;
 use std::path::Path;
@@ -11,6 +11,7 @@ use crate::document::Document;
 pub enum IndexedKind {
     Decision,
     Task,
+    Research,
 }
 
 impl IndexedKind {
@@ -18,6 +19,7 @@ impl IndexedKind {
         match self {
             Self::Decision => "DEC-",
             Self::Task => "TASK-",
+            Self::Research => "RES-",
         }
     }
 
@@ -25,6 +27,7 @@ impl IndexedKind {
         match self {
             Self::Decision => "decisions",
             Self::Task => "tasks",
+            Self::Research => "research",
         }
     }
 
@@ -32,6 +35,7 @@ impl IndexedKind {
         match self {
             Self::Decision => 1,
             Self::Task => 10,
+            Self::Research => 1,
         }
     }
 }
@@ -42,7 +46,7 @@ pub struct InvalidIndexedKind;
 
 impl fmt::Display for InvalidIndexedKind {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("kind must be `decision` or `task`")
+        formatter.write_str("kind must be `decision`, `task`, or `research`")
     }
 }
 
@@ -55,6 +59,7 @@ impl FromStr for IndexedKind {
         match value {
             "decision" => Ok(Self::Decision),
             "task" => Ok(Self::Task),
+            "research" => Ok(Self::Research),
             _ => Err(InvalidIndexedKind),
         }
     }
@@ -125,9 +130,11 @@ mod tests {
             document("docs/decisions/product/0007-product.md", Some("DEC-0002")),
             document("docs/tasks/todo/0140-task.md", Some("TASK-0120")),
             document("docs/architecture/9999-ignored.md", Some("ARCH-9999")),
+            document("docs/research/0003-research.md", Some("RES-0002")),
         ];
 
         assert_eq!(next_index(IndexedKind::Decision, documents.clone()), 8);
-        assert_eq!(next_index(IndexedKind::Task, documents), 150);
+        assert_eq!(next_index(IndexedKind::Task, documents.clone()), 150);
+        assert_eq!(next_index(IndexedKind::Research, documents), 4);
     }
 }

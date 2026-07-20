@@ -2,7 +2,7 @@
 vibedoc: 1
 id: TASK-0090
 kind: task
-status: todo
+status: done
 tags:
   - research
   - lint
