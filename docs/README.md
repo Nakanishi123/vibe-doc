@@ -147,6 +147,16 @@ The source Task shows TASK-0010 as a dependency. TASK-0010 automatically shows t
 
 Normal Markdown links to managed documents are also indexed. The target document automatically shows the source under its references. Do not manually store backlinks or duplicate reverse relationships.
 
+List the documents that reference a document from the CLI with:
+
+```bash
+vibe-doc refs TASK-0030
+vibe-doc refs docs/tasks/done/0030-cli.md
+vibe-doc refs TASK-0030 --json
+```
+
+The argument is a document ID or a managed file path. The output groups referencing documents by relationship: `related`, `depended on by` (reverse of `depends_on`), and `linked from` (Markdown link backlinks). `--json` prints the same information as JSON with every group present, even when empty. Only documents with an ID are indexed as reference sources.
+
 ## Tags
 
 Tags are shared across Architecture, Decision, and Task documents. Prefer lowercase kebab-case names such as `next-js`, `web-ui`, and `error-handling`.

@@ -25,6 +25,14 @@ enum Command {
     Tag,
     /// 次に使える文書番号を表示する。
     NextIndex { kind: CommandKind },
+    /// 指定した文書を参照している文書を表示する。
+    Refs {
+        /// 文書ID(例: TASK-0030)またはdocs配下のファイルパス。
+        target: String,
+        /// 空のグループも含む構造化JSONで出力する。
+        #[arg(long)]
+        json: bool,
+    },
     /// ローカルWeb UIを起動する。
     Serve,
 }
@@ -51,6 +59,7 @@ pub(crate) fn run(cli: Cli) -> ExitCode {
         Some(Command::Lint) => run_lint(),
         Some(Command::Tag) => run_tag(),
         Some(Command::NextIndex { kind }) => run_next_index(kind.into()),
+        Some(Command::Refs { target, json }) => run_refs(&target, json),
         Some(Command::Serve) => crate::server::serve(DOCUMENT_ROOT),
         None => {
             println!("{}", Cli::command().render_help());
@@ -87,6 +96,18 @@ fn run_tag() -> ExitCode {
         println!("{tag}");
     }
     ExitCode::SUCCESS
+}
+
+fn run_refs(target: &str, json: bool) -> ExitCode {
+    let tree = parse_document_tree(DOCUMENT_ROOT);
+    let index = DocumentIndex::from_document_map(&tree.documents);
+    match crate::refs::run_refs(target, json, &index, &tree.documents) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(message) => {
+            eprintln!("error: {message}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 fn run_next_index(kind: IndexedKind) -> ExitCode {

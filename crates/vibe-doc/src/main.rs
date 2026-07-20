@@ -1,6 +1,7 @@
 mod api;
 mod cli;
 mod embedded_ui;
+mod refs;
 mod server;
 
 use clap::Parser;
