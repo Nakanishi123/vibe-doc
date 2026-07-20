@@ -13,13 +13,43 @@ const modeKinds = {
   research: "research",
 } as const;
 
+const modeCopy = {
+  architecture: [
+    "System atlas",
+    "Architecture",
+    "Understand how the system is structured and behaves today.",
+  ],
+  decisions: [
+    "Decision archive",
+    "Decisions",
+    "Trace each choice back to its context, consequence, and current status.",
+  ],
+  tasks: [
+    "Execution ledger",
+    "Tasks",
+    "Follow work from the first intention through completion—or a deliberate stop.",
+  ],
+  research: [
+    "Reference shelf",
+    "Research",
+    "Keep investigation notes that inform decisions without a lifecycle of their own.",
+  ],
+  documents: [
+    "Knowledge index",
+    "Documents",
+    "Search every title, identifier, tag, and paragraph in the repository.",
+  ],
+} as const;
+
 export function DocumentList({ mode }: { mode: keyof typeof modeKinds }) {
   const searchParams = new URLSearchParams(window.location.search);
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [kind, setKind] = useState(
-    mode === "documents" ? (searchParams.get("kind") ?? "") : modeKinds[mode],
+    mode === "documents" ? (searchParams.get("kind") ?? modeKinds.documents) : modeKinds[mode],
   );
-  const [status, setStatus] = useState(searchParams.get("status") ?? "");
+  const [status, setStatus] = useState(
+    mode === "research" ? "" : (searchParams.get("status") ?? ""),
+  );
   const [tag, setTag] = useState(searchParams.get("tag") ?? "");
   const [settledQuery, setSettledQuery] = useState(query);
   useEffect(() => {
@@ -31,33 +61,6 @@ export function DocumentList({ mode }: { mode: keyof typeof modeKinds }) {
     [settledQuery, kind, status, tag],
   );
   const tags = useApi(() => api.tags(), []);
-  const modeCopy = {
-    architecture: [
-      "System atlas",
-      "Architecture",
-      "Understand how the system is structured and behaves today.",
-    ],
-    decisions: [
-      "Decision archive",
-      "Decisions",
-      "Trace each choice back to its context, consequence, and current status.",
-    ],
-    tasks: [
-      "Execution ledger",
-      "Tasks",
-      "Follow work from the first intention through completion—or a deliberate stop.",
-    ],
-    research: [
-      "Reference shelf",
-      "Research",
-      "Keep investigation notes that inform decisions without a lifecycle of their own.",
-    ],
-    documents: [
-      "Knowledge index",
-      "Documents",
-      "Search every title, identifier, tag, and paragraph in the repository.",
-    ],
-  } as const;
   const copy = modeCopy[mode];
 
   return (

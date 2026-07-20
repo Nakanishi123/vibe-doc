@@ -1,9 +1,9 @@
-use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::{CommandFactory, Parser, Subcommand};
 use std::process::ExitCode;
 
 use vibe_doc_core::index::DocumentIndex;
 use vibe_doc_core::lint::{DiagnosticLevel, lint};
-use vibe_doc_core::next_index::{IndexedKind, next_index};
+use vibe_doc_core::next_index::{IndexedKind, InvalidIndexedKind, next_index};
 use vibe_doc_core::parser::parse_document_tree;
 
 const DOCUMENT_ROOT: &str = "docs";
@@ -24,7 +24,11 @@ enum Command {
     /// 重複のないタグ一覧を表示する。
     Tag,
     /// 次に使える文書番号を表示する。
-    NextIndex { kind: CommandKind },
+    NextIndex {
+        /// 採番対象の文書種別。decision・task・researchのいずれかを指定する。
+        #[arg(value_parser = parse_indexed_kind)]
+        kind: IndexedKind,
+    },
     /// 指定した文書を参照している文書を表示する。
     Refs {
         /// 文書ID(例: TASK-0030)またはdocs配下のファイルパス。
@@ -37,22 +41,10 @@ enum Command {
     Serve,
 }
 
-/// `next-index`で指定できる文書種別。
-#[derive(Debug, Clone, Copy, ValueEnum)]
-enum CommandKind {
-    Decision,
-    Task,
-    Research,
-}
-
-impl From<CommandKind> for IndexedKind {
-    fn from(kind: CommandKind) -> Self {
-        match kind {
-            CommandKind::Decision => Self::Decision,
-            CommandKind::Task => Self::Task,
-            CommandKind::Research => Self::Research,
-        }
-    }
+/// clapの引数文字列を`IndexedKind`へ変換する。`IndexedKind`の`FromStr`を唯一の
+/// 変換元として再利用し、CLI・API・lintで受け付ける種別の定義が分散しないようにする。
+fn parse_indexed_kind(value: &str) -> Result<IndexedKind, InvalidIndexedKind> {
+    value.parse()
 }
 
 /// 解釈済みのCLIコマンドを実行する。
@@ -60,7 +52,7 @@ pub(crate) fn run(cli: Cli) -> ExitCode {
     match cli.command {
         Some(Command::Lint) => run_lint(),
         Some(Command::Tag) => run_tag(),
-        Some(Command::NextIndex { kind }) => run_next_index(kind.into()),
+        Some(Command::NextIndex { kind }) => run_next_index(kind),
         Some(Command::Refs { target, json }) => run_refs(&target, json),
         Some(Command::Serve) => crate::server::serve(DOCUMENT_ROOT),
         None => {
@@ -120,8 +112,9 @@ fn run_next_index(kind: IndexedKind) -> ExitCode {
 
 #[cfg(test)]
 mod tests {
-    use super::{Cli, Command, CommandKind};
+    use super::{Cli, Command};
     use clap::Parser;
+    use vibe_doc_core::next_index::IndexedKind;
 
     #[test]
     fn parses_next_index_kind_as_a_constrained_value() {
@@ -129,14 +122,14 @@ mod tests {
         assert!(matches!(
             cli.command,
             Some(Command::NextIndex {
-                kind: CommandKind::Task
+                kind: IndexedKind::Task
             })
         ));
         let cli = Cli::try_parse_from(["vibe-doc", "next-index", "research"]).unwrap();
         assert!(matches!(
             cli.command,
             Some(Command::NextIndex {
-                kind: CommandKind::Research
+                kind: IndexedKind::Research
             })
         ));
         assert!(Cli::try_parse_from(["vibe-doc", "next-index", "unknown"]).is_err());
