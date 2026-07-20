@@ -24,6 +24,9 @@ importers:
         specifier: ^4.0.1
         version: 4.0.1
     devDependencies:
+      '@types/mdast':
+        specifier: 4.0.4
+        version: 4.0.4
       '@types/react':
         specifier: 19.2.17
         version: 19.2.17
