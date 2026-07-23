@@ -312,7 +312,7 @@
 .relations-section {
   width: min(1110px, calc(100% - 72px));
   margin: 0 auto;
-  padding-bottom: 80px;
+  padding-bottom: 48px;
 }
 .relation-grid {
   display: grid;
@@ -331,6 +331,46 @@
 .document-list.compact .document-path,
 .document-list.compact .tag-row {
   display: none;
+}
+.document-navigation {
+  width: min(1110px, calc(100% - 72px));
+  margin: 0 auto;
+  padding-bottom: 80px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.document-navigation-link {
+  min-width: 0;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.document-navigation-link:hover {
+  border-color: var(--moss);
+}
+.document-navigation-next {
+  grid-column: 2;
+  text-align: right;
+  align-items: flex-end;
+}
+.document-navigation-label {
+  color: var(--ink-muted);
+  font: 500 9px var(--mono);
+}
+.document-navigation-link strong {
+  font: 500 13px var(--mono);
+}
+.document-navigation-title {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ink-muted);
+  font: 500 18px var(--serif);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tag-cloud {

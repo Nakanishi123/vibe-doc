@@ -36,6 +36,26 @@ function RelationGroup({
   );
 }
 
+function DocumentNavigationLink({
+  direction,
+  document,
+}: {
+  direction: "previous" | "next";
+  document: DocumentSummary;
+}) {
+  const isPrevious = direction === "previous";
+  return (
+    <LinkButton
+      className={`document-navigation-link document-navigation-${direction}`}
+      to={`/documents/${encodeURIComponent(document.id)}`}
+    >
+      <span className="document-navigation-label">{isPrevious ? "← 前へ" : "次へ →"}</span>
+      <strong>{document.id}</strong>
+      <span className="document-navigation-title">{document.title}</span>
+    </LinkButton>
+  );
+}
+
 export function DocumentDetail({ id }: { id: string }) {
   const { data, error } = useApi(() => api.document(id), [id]);
   if (error)
@@ -142,6 +162,16 @@ export function DocumentDetail({ id }: { id: string }) {
           </div>
         )}
       </section>
+      {(data.previousDocument || data.nextDocument) && (
+        <nav className="document-navigation" aria-label="前後の文書">
+          {data.previousDocument && (
+            <DocumentNavigationLink direction="previous" document={data.previousDocument} />
+          )}
+          {data.nextDocument && (
+            <DocumentNavigationLink direction="next" document={data.nextDocument} />
+          )}
+        </nav>
+      )}
     </div>
   );
 }

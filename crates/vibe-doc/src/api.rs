@@ -108,6 +108,8 @@ struct DocumentDetail {
     schema_version: Option<u32>,
     body: String,
     extra: BTreeMap<String, String>,
+    previous_document: Option<DocumentSummary>,
+    next_document: Option<DocumentSummary>,
     related: Vec<DocumentSummary>,
     dependencies: Vec<DocumentSummary>,
     dependents: Vec<DocumentSummary>,
@@ -215,6 +217,22 @@ async fn get_document(
         .read()
         .expect("API snapshot lock should not be poisoned");
     let document = snapshot.index.document(&id).ok_or(StatusCode::NOT_FOUND)?;
+    let same_kind: Vec<_> = snapshot
+        .index
+        .documents()
+        .filter(|candidate| candidate.metadata.kind == document.metadata.kind)
+        .collect();
+    let position = same_kind
+        .iter()
+        .position(|candidate| candidate.metadata.id.as_deref() == Some(id.as_str()))
+        .expect("requested document should be present in the document index");
+    let previous_document = position
+        .checked_sub(1)
+        .and_then(|index| same_kind.get(index))
+        .map(|document| document_summary(document));
+    let next_document = same_kind
+        .get(position + 1)
+        .map(|document| document_summary(document));
     let dependencies = document
         .metadata
         .depends_on
@@ -236,6 +254,8 @@ async fn get_document(
         schema_version: document.metadata.schema_version,
         body: document.body.clone(),
         extra: document.metadata.extra.clone(),
+        previous_document,
+        next_document,
         related: snapshot
             .index
             .related_documents(&id)
@@ -417,8 +437,8 @@ fn link_summary(source: &Document, target: &Document, relation: LinkRelation) ->
 
 #[cfg(test)]
 mod tests {
-    use super::{ApiState, DocumentQuery, list_documents, reload};
-    use axum::extract::{Query, State};
+    use super::{ApiState, DocumentQuery, get_document, list_documents, reload};
+    use axum::extract::{Path, Query, State};
     use std::fs;
 
     #[tokio::test]
@@ -466,6 +486,45 @@ mod tests {
 
         assert_eq!(response.0.document_count, 2);
         assert_eq!(documents.0.len(), 2);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn document_detail_has_previous_and_next_documents_of_the_same_kind() {
+        let root = std::env::temp_dir().join(format!(
+            "vibe-doc-api-navigation-test-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        for (file, id, kind) in [
+            ("first.md", "ARCH-0001", "architecture"),
+            ("second.md", "ARCH-0002", "architecture"),
+            ("fourth.md", "ARCH-0004", "architecture"),
+            ("decision.md", "DEC-0003", "decision"),
+        ] {
+            fs::write(
+                root.join(file),
+                format!("---\nid: {id}\nkind: {kind}\n---\n# {id}\n"),
+            )
+            .unwrap();
+        }
+
+        let detail = get_document(State(ApiState::new(&root)), Path("ARCH-0002".to_owned()))
+            .await
+            .unwrap()
+            .0;
+
+        assert_eq!(
+            detail
+                .previous_document
+                .as_ref()
+                .map(|document| &document.id),
+            Some(&"ARCH-0001".to_owned())
+        );
+        assert_eq!(
+            detail.next_document.as_ref().map(|document| &document.id),
+            Some(&"ARCH-0004".to_owned())
+        );
         fs::remove_dir_all(root).unwrap();
     }
 }

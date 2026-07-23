@@ -13,6 +13,8 @@ export interface DocumentDetail extends DocumentSummary {
   schemaVersion?: number;
   body: string;
   extra: Record<string, string>;
+  previousDocument: DocumentSummary | null;
+  nextDocument: DocumentSummary | null;
   related: DocumentSummary[];
   dependencies: DocumentSummary[];
   dependents: DocumentSummary[];

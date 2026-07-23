@@ -46,6 +46,9 @@
   .relations-section {
     width: calc(100% - 50px);
   }
+  .document-navigation {
+    width: calc(100% - 50px);
+  }
 }
 
 @media (max-width: 720px) {
@@ -133,7 +136,8 @@
     margin-left: 52px;
   }
   .detail-grid,
-  .relations-section {
+  .relations-section,
+  .document-navigation {
     width: calc(100% - 28px);
   }
   .document-paper {
@@ -158,6 +162,12 @@
   }
   .lint-summary {
     grid-template-columns: 1fr;
+  }
+  .document-navigation {
+    grid-template-columns: 1fr;
+  }
+  .document-navigation-next {
+    grid-column: 1;
   }
 }
 
