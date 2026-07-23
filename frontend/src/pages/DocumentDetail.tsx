@@ -100,9 +100,21 @@ export function DocumentDetail({ id }: { id: string }) {
         </div>
       </header>
       <div className="detail-grid">
-        <article className="document-paper">
-          <MarkdownBody linkedDocuments={data.bodyLinks} source={data.body} />
-        </article>
+        <div className="document-column">
+          <article className="document-paper">
+            <MarkdownBody linkedDocuments={data.bodyLinks} source={data.body} />
+          </article>
+          {(data.previousDocument || data.nextDocument) && (
+            <nav className="document-navigation" aria-label="前後の文書">
+              {data.previousDocument && (
+                <DocumentNavigationLink direction="previous" document={data.previousDocument} />
+              )}
+              {data.nextDocument && (
+                <DocumentNavigationLink direction="next" document={data.nextDocument} />
+              )}
+            </nav>
+          )}
+        </div>
         <aside className="metadata-rail">
           <section>
             <p className="kicker">Front matter</p>
@@ -162,16 +174,6 @@ export function DocumentDetail({ id }: { id: string }) {
           </div>
         )}
       </section>
-      {(data.previousDocument || data.nextDocument) && (
-        <nav className="document-navigation" aria-label="前後の文書">
-          {data.previousDocument && (
-            <DocumentNavigationLink direction="previous" document={data.previousDocument} />
-          )}
-          {data.nextDocument && (
-            <DocumentNavigationLink direction="next" document={data.nextDocument} />
-          )}
-        </nav>
-      )}
     </div>
   );
 }

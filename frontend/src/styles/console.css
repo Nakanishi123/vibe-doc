@@ -759,8 +759,7 @@ a:focus-visible {
     padding-top: 72px;
   }
   .detail-grid,
-  .relations-section,
-  .document-navigation {
+  .relations-section {
     width: calc(100% - 32px);
   }
 }

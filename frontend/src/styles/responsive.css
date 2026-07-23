@@ -46,9 +46,6 @@
   .relations-section {
     width: calc(100% - 50px);
   }
-  .document-navigation {
-    width: calc(100% - 50px);
-  }
 }
 
 @media (max-width: 720px) {
@@ -136,8 +133,7 @@
     margin-left: 52px;
   }
   .detail-grid,
-  .relations-section,
-  .document-navigation {
+  .relations-section {
     width: calc(100% - 28px);
   }
   .document-paper {
