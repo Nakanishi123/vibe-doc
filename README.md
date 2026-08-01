@@ -70,3 +70,6 @@ vibe-doc init
 `AGENTS.md`、それを指す`CLAUDE.md`シンボリックリンク、`docs/README.md`と、
 Architecture、Decision、Research、Task用の標準ディレクトリを作成します。
 既存ファイルやリンクは上書きしません。
+
+Windowsでシンボリックリンクを作成するには、Developer Modeまたはシンボリックリンクを
+作成できる権限が必要です。権限がない場合、`init`はエラーを表示して終了します。

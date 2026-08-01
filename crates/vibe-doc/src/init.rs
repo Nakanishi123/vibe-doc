@@ -1,6 +1,5 @@
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
-use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -104,11 +103,21 @@ fn write_new_file(path: &Path, contents: &str) -> io::Result<FileStatus> {
 }
 
 fn create_new_symlink(target: &Path, link: &Path) -> io::Result<FileStatus> {
-    match symlink(target, link) {
+    match create_file_symlink(target, link) {
         Ok(()) => Ok(FileStatus::Created),
         Err(error) if error.kind() == io::ErrorKind::AlreadyExists => Ok(FileStatus::AlreadyExists),
         Err(error) => Err(error),
     }
+}
+
+#[cfg(unix)]
+fn create_file_symlink(target: &Path, link: &Path) -> io::Result<()> {
+    std::os::unix::fs::symlink(target, link)
+}
+
+#[cfg(windows)]
+fn create_file_symlink(target: &Path, link: &Path) -> io::Result<()> {
+    std::os::windows::fs::symlink_file(target, link)
 }
 
 #[cfg(test)]

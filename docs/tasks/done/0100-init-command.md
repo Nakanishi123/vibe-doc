@@ -24,3 +24,4 @@ depends_on:
 - `vibe-doc init`で`AGENTS.md`、それを指す`CLAUDE.md`シンボリックリンク、`docs/README.md`を作成する。
 - Architecture、Decision、Research、Task用の標準ディレクトリを作成する。
 - 既存ファイルを上書きせず、繰り返し安全に実行できる。
+- Unix系とWindowsの両方でビルドでき、各OSのAPIでシンボリックリンクを作成する。
