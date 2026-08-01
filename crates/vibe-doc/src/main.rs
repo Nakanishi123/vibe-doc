@@ -1,6 +1,7 @@
 mod api;
 mod cli;
 mod embedded_ui;
+mod init;
 mod refs;
 mod server;
 

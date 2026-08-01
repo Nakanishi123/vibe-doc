@@ -19,6 +19,8 @@ pub(crate) struct Cli {
 /// CLIから実行できる一回限りの操作。
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// プロジェクト用のAI指示ファイルと文書ディレクトリを作成する。
+    Init,
     /// 文書の構造上の問題を検査する。
     Lint,
     /// 重複のないタグ一覧を表示する。
@@ -50,6 +52,7 @@ fn parse_indexed_kind(value: &str) -> Result<IndexedKind, InvalidIndexedKind> {
 /// 解釈済みのCLIコマンドを実行する。
 pub(crate) fn run(cli: Cli) -> ExitCode {
     match cli.command {
+        Some(Command::Init) => crate::init::run_init(),
         Some(Command::Lint) => run_lint(),
         Some(Command::Tag) => run_tag(),
         Some(Command::NextIndex { kind }) => run_next_index(kind),
@@ -115,6 +118,12 @@ mod tests {
     use super::{Cli, Command};
     use clap::Parser;
     use vibe_doc_core::next_index::IndexedKind;
+
+    #[test]
+    fn parses_init_command() {
+        let cli = Cli::try_parse_from(["vibe-doc", "init"]).unwrap();
+        assert!(matches!(cli.command, Some(Command::Init)));
+    }
 
     #[test]
     fn parses_next_index_kind_as_a_constrained_value() {

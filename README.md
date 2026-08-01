@@ -58,3 +58,15 @@ cargo build --release
 CargoビルドはViteを実行し、生成したWeb UIを`vibe-doc`へ埋め込みます。完成した
 バイナリの実行時にはNode.js、pnpm、`frontend/dist`は不要です。Web UIのURLには、
 起動時に標準出力へ表示される空きポートを使用してください。
+
+## Initialize a documentation project
+
+プロジェクトのルートで次のコマンドを実行します。
+
+```bash
+vibe-doc init
+```
+
+`AGENTS.md`、それを指す`CLAUDE.md`シンボリックリンク、`docs/README.md`と、
+Architecture、Decision、Research、Task用の標準ディレクトリを作成します。
+既存ファイルやリンクは上書きしません。
