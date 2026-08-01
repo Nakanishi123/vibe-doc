@@ -1,4 +1,5 @@
 use clap::{CommandFactory, Parser, Subcommand};
+use std::net::{IpAddr, Ipv4Addr};
 use std::process::ExitCode;
 
 use vibe_doc_core::index::DocumentIndex;
@@ -39,8 +40,15 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// ローカルWeb UIを起動する。
-    Serve,
+    /// Web UIを起動する。
+    Serve {
+        /// 待ち受けるIPアドレス。
+        #[arg(long, default_value_t = IpAddr::V4(Ipv4Addr::LOCALHOST))]
+        host: IpAddr,
+        /// 待ち受けるポート。0を指定すると空きポートを自動選択する。
+        #[arg(long, default_value_t = 0)]
+        port: u16,
+    },
 }
 
 /// clapの引数文字列を`IndexedKind`へ変換する。`IndexedKind`の`FromStr`を唯一の
@@ -57,7 +65,7 @@ pub(crate) fn run(cli: Cli) -> ExitCode {
         Some(Command::Tag) => run_tag(),
         Some(Command::NextIndex { kind }) => run_next_index(kind),
         Some(Command::Refs { target, json }) => run_refs(&target, json),
-        Some(Command::Serve) => crate::server::serve(DOCUMENT_ROOT),
+        Some(Command::Serve { host, port }) => crate::server::serve(DOCUMENT_ROOT, host, port),
         None => {
             println!("{}", Cli::command().render_help());
             ExitCode::SUCCESS
@@ -117,6 +125,7 @@ fn run_next_index(kind: IndexedKind) -> ExitCode {
 mod tests {
     use super::{Cli, Command};
     use clap::Parser;
+    use std::net::{IpAddr, Ipv4Addr};
     use vibe_doc_core::next_index::IndexedKind;
 
     #[test]
@@ -142,5 +151,30 @@ mod tests {
             })
         ));
         assert!(Cli::try_parse_from(["vibe-doc", "next-index", "unknown"]).is_err());
+    }
+
+    #[test]
+    fn parses_serve_network_options() {
+        let cli = Cli::try_parse_from(["vibe-doc", "serve", "--host", "0.0.0.0", "--port", "3000"])
+            .unwrap();
+        assert!(matches!(
+            cli.command,
+            Some(Command::Serve {
+                host: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                port: 3000
+            })
+        ));
+    }
+
+    #[test]
+    fn serve_defaults_to_loopback_and_an_automatic_port() {
+        let cli = Cli::try_parse_from(["vibe-doc", "serve"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Some(Command::Serve {
+                host: IpAddr::V4(Ipv4Addr::LOCALHOST),
+                port: 0
+            })
+        ));
     }
 }

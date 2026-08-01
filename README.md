@@ -27,6 +27,17 @@ pnpm --dir frontend dev
 VITE_API_TARGET=http://127.0.0.1:<表示されたポート> pnpm --dir frontend dev
 ```
 
+ポートを固定したい場合は`--port`を指定します。SSH接続先など、別のマシンから
+アクセスできるようにする場合は`--host 0.0.0.0`も指定します。
+
+```bash
+vibe-doc serve --host 0.0.0.0 --port 3000
+```
+
+この場合はブラウザから`http://<サーバーのIPアドレス>:3000`へアクセスします。
+`0.0.0.0`では到達可能な全ネットワークインターフェースで待ち受けるため、必要に応じて
+ファイアウォールやSSHポートフォワーディングでアクセス元を制限してください。
+
 ## Install
 
 Linux x86_64、macOS x86_64、macOS Apple Siliconに対応しています。

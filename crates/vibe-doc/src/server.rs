@@ -1,17 +1,17 @@
 //! ローカルHTTPサーバーと静的アセット配信を定義する。
 
+use std::net::{IpAddr, SocketAddr};
 use std::process::ExitCode;
 
 use axum::Router;
-
-const ADDRESS: &str = "127.0.0.1:0";
 
 /// 文書索引、JSON API、埋め込みWeb UIを同じローカルHTTPサーバーから配信する。
 ///
 /// APIは文書スナップショットを公開し、再読込時だけディスクから再構築する。
 /// UIはコンパイル時にバイナリへ取り込まれているため、起動時にNode.jsや
 /// `frontend/dist`を探さず、SPAのクライアントルートも埋め込みHTMLへ戻す。
-pub(crate) fn serve(document_root: &str) -> ExitCode {
+pub(crate) fn serve(document_root: &str, host: IpAddr, port: u16) -> ExitCode {
+    let requested_address = SocketAddr::new(host, port);
     let runtime = match tokio::runtime::Runtime::new() {
         Ok(runtime) => runtime,
         Err(error) => {
@@ -24,10 +24,10 @@ pub(crate) fn serve(document_root: &str) -> ExitCode {
         let app = Router::new()
             .nest("/api", crate::api::router(state))
             .fallback(crate::embedded_ui::serve);
-        let listener = match tokio::net::TcpListener::bind(ADDRESS).await {
+        let listener = match tokio::net::TcpListener::bind(requested_address).await {
             Ok(listener) => listener,
             Err(error) => {
-                eprintln!("failed to listen on {ADDRESS}: {error}");
+                eprintln!("failed to listen on {requested_address}: {error}");
                 return ExitCode::FAILURE;
             }
         };

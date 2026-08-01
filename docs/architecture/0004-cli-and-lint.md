@@ -20,13 +20,16 @@ related:
 
 ```bash
 vibe-doc serve
+vibe-doc serve --host 0.0.0.0 --port 3000
 vibe-doc lint
 vibe-doc tag
 vibe-doc next-index decision
 vibe-doc next-index task
 ```
 
-- `serve`: ローカルのWeb UIとJSON APIを、OSが割り当てた空きポートで提供する。
+- `serve`: Web UIとJSON APIを提供する。既定では`127.0.0.1`の空きポートを使用し、
+  `--host`で待ち受けIPアドレス、`--port`でポートを指定できる。ポート`0`はOSによる
+  自動割り当てを意味する。
 - `lint`: 診断を標準出力へ表示する。
 - `tag`: タグ一覧を標準出力へ表示する。
 - `next-index`: 指定kindの次の採番候補を標準出力へ表示する。
